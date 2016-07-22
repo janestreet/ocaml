@@ -597,6 +597,8 @@ void caml_major_collection_slice (intnat howmuch)
         / Wsize_bsize (caml_stat_heap_size) / caml_percent_free / 2.0;
     }
     caml_major_work_credit += filt_p;
+    /* Limit work credit to 1.0 in p units */
+    caml_major_work_credit = fmin(caml_major_work_credit, 1.0);
   }
 
   p = filt_p;

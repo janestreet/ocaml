@@ -510,6 +510,10 @@ static char *expand_heap (mlsize_t request)
     caml_free_for_heap (mem);
     return NULL;
   }
+
+  /* We had to expand heap, so we are likely behind work load. */
+  caml_major_work_credit = 0.0;
+
   return Bp_hp (mem);
 }
 
