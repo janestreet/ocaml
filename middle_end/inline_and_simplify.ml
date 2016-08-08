@@ -179,6 +179,7 @@ let approx_for_allocated_const (const : Allocated_const.t) =
   | String s -> A.value_string (String.length s) None
   | Immutable_string s -> A.value_string (String.length s) (Some s)
   | Int32 i -> A.value_boxed_int Int32 i
+  | Int63 i -> A.value_boxed_int Int64 (Int63.to_int64 i)  (* TODO: Hack to make this compile for now *)
   | Int64 i -> A.value_boxed_int Int64 i
   | Nativeint i -> A.value_boxed_int Nativeint i
   | Float f -> A.value_float f

@@ -35,6 +35,7 @@ let value_kind =
 let rec structured_constant ppf = function
   | Uconst_float x -> fprintf ppf "%F" x
   | Uconst_int32 x -> fprintf ppf "%ldl" x
+  | Uconst_int63 x -> fprintf ppf "%LdL" (Int63.to_int64 x)
   | Uconst_int64 x -> fprintf ppf "%LdL" x
   | Uconst_nativeint x -> fprintf ppf "%ndn" x
   | Uconst_block (tag, l) ->

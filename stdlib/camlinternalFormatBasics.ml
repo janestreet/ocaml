@@ -281,11 +281,6 @@ and ('a1, 'b1, 'c1, 'd1, 'e1, 'f1,
        'a2, 'b2, 'c2, 'd2, 'e2, 'f2) fmtty_rel ->
       (int32 -> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1,
        int32 -> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2) fmtty_rel
-  (* | Int63_ty :                                                (* %td *)
-   *     ('a1, 'b1, 'c1, 'd1, 'e1, 'f1,
-   *      'a2, 'b2, 'c2, 'd2, 'e2, 'f2) fmtty_rel ->
-   *     (int63 -> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1,
-   *      int63 -> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2) fmtty_rel *)
   | Nativeint_ty :                                            (* %nd *)
       ('a1, 'b1, 'c1, 'd1, 'e1, 'f1,
        'a2, 'b2, 'c2, 'd2, 'e2, 'f2) fmtty_rel ->

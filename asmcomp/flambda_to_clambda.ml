@@ -203,6 +203,7 @@ let to_clambda_allocated_constant (const : Allocated_const.t)
   match const with
   | Float f -> Uconst_float f
   | Int32 i -> Uconst_int32 i
+  | Int63 i -> Uconst_int63 i
   | Int64 i -> Uconst_int64 i
   | Nativeint i -> Uconst_nativeint i
   | Immutable_string s | String s -> Uconst_string s
