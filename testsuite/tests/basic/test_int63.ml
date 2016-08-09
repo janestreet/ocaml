@@ -95,6 +95,20 @@ struct
     test_int63 10 (of_string "0x4000000000000000") min_int;
     test_int63 11 (of_string "0x7FFFFFFFFFFFFFFF") minus_one;
 
+    testing_function "literals";
+    test_int63 1 0t (of_int 0);
+    test_int63 2 123t (of_int 123);
+    test_int63 3 (-456t) (of_int (-456));
+    test_int63 4 123456789t (of_int 123456789);
+    test_int63 5 0xABCDEFt (of_int 0xABCDEF);
+    test_int63 6 (- 0o1234567012t) (of_int (- 0o1234567012));
+    test_int63 7 0b01010111111000001100t
+      (of_int 0b01010111111000001100);
+    test_int63 8 0x3FFFFFFFFFFFFFFFt max_int;
+    test_int63 9 (-0x4000000000000000t) min_int;
+    test_int63 10 (0x4000000000000000t) min_int;
+    test_int63 11 0x7FFFFFFFFFFFFFFFt minus_one;
+
     testing_function "to_string";
     List.iter (fun (n, s) -> test_strings n (to_string (of_string s)) s)
       [1, "0"; 2, "123"; 3, "-456"; 4, "1234567890";
