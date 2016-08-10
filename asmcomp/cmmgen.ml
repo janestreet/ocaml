@@ -2618,7 +2618,8 @@ let rec emit_structured_constant symb cst cont =
       emit_block boxedint32_header symb
         (emit_boxed_int32_constant n cont)
   | Uconst_int63 n ->
-      emit_structured_constant symb (Uconst_int64 (Int63.to_int64 n)) cont
+      emit_structured_constant symb
+        (Uconst_int64 Int64.(add one (mul (of_int 2) (Int63.to_int64 n)))) cont
   | Uconst_int64 n ->
       emit_block boxedint64_header symb
         (emit_boxed_int64_constant n cont)
