@@ -2618,9 +2618,7 @@ let rec emit_structured_constant symb cst cont =
       emit_block boxedint32_header symb
         (emit_boxed_int32_constant n cont)
   | Uconst_int63 n ->
-    if size_int = 8
-    then cint_const (Int63.to_int n) :: cont
-    else emit_structured_constant symb (Uconst_int64 (Int63.to_int64 n)) cont
+      emit_structured_constant symb (Uconst_int64 (Int63.to_int64 n)) cont
   | Uconst_int64 n ->
       emit_block boxedint64_header symb
         (emit_boxed_int64_constant n cont)
