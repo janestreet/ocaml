@@ -811,10 +811,7 @@ let rec close fenv cenv = function
             str ~shared:Config.safe_string (Uconst_string s)
         | Const_base(Const_float x) -> str (Uconst_float (float_of_string x))
         | Const_base(Const_int32 x) -> str (Uconst_int32 x)
-        | Const_base(Const_int63 x) ->
-            if Sys.word_size = 64
-            then Uconst_int (Int63.to_int x)
-            else str (Uconst_int63 x)
+        | Const_base(Const_int63 x) -> str (Uconst_int64 Int64.(add 1L (mul (Int63.to_int64 x) 2L)))
         | Const_base(Const_int64 x) -> str (Uconst_int64 x)
         | Const_base(Const_nativeint x) -> str (Uconst_nativeint x)
       in
@@ -1297,7 +1294,7 @@ let collect_exported_structured_constants a =
     | Uconst_int _ | Uconst_ptr _ -> ()
   and structured_constant = function
     | Uconst_block (_, ul) -> List.iter const ul
-    | Uconst_float _ | Uconst_int32 _ | Uconst_int63 _
+    | Uconst_float _ | Uconst_int32 _
     | Uconst_int64 _ | Uconst_nativeint _
     | Uconst_float_array _ | Uconst_string _ -> ()
     | Uconst_closure _  -> assert false (* Cannot be generated *)

@@ -692,6 +692,58 @@ let split_default_wrapper ?(create_wrapper_body = fun lam -> lam)
   with Exit ->
     [(fun_id, Lfunction{kind; params; body; attr; loc})]
 
+let simplify_constants ~optcompile lam =
+  let rec simplif = function
+    | Lvar x -> Lvar x
+    | Lconst (Const_base (Const_int63 n)) ->
+      begin match (optcompile, Sys.word_size) with
+      | (Some (), 64) -> Lconst (Const_base (Const_int (Int63.to_int n)))
+      | _ -> Lconst (Const_base (Const_int63 n))
+      end
+    | Lconst x -> Lconst x
+    | Lapply ap -> Lapply { ap with
+                            ap_func = simplif ap.ap_func
+                          ; ap_args = List.map simplif ap.ap_args }
+    | Lfunction f -> Lfunction { f with
+                                 body = simplif f.body }
+    | Llet(str, kind, v, l1, l2) ->
+      Llet(str, kind, v, simplif l1, simplif l2)
+    | Lletrec(bindings, body) ->
+      Lletrec(List.map (fun (v, l) -> (v, simplif l)) bindings,
+              simplif body)
+    | Lprim(p, ll, loc) -> Lprim(p, List.map simplif ll, loc)
+    | Lswitch(l, sw) ->
+      let new_l = simplif l
+      and new_consts =  List.map (fun (n, e) -> (n, simplif e)) sw.sw_consts
+      and new_blocks =  List.map (fun (n, e) -> (n, simplif e)) sw.sw_blocks
+      and new_fail = Misc.may_map simplif sw.sw_failaction in
+      Lswitch
+        (new_l,
+         {sw with sw_consts = new_consts ; sw_blocks = new_blocks;
+                  sw_failaction = new_fail})
+    | Lstringswitch (l,sw,d,loc) ->
+      Lstringswitch
+        (simplif l,List.map (fun (s,l) -> s,simplif l) sw,
+         Misc.may_map simplif d,loc)
+    | Lstaticraise (i,ls) ->
+      Lstaticraise (i, List.map simplif ls)
+    | Lstaticcatch(l1, (i,args), l2) ->
+      Lstaticcatch (simplif l1, (i,args), simplif l2)
+    | Ltrywith(l1, v, l2) -> Ltrywith(simplif l1, v, simplif l2)
+    | Lifthenelse(l1, l2, l3) ->
+      Lifthenelse(simplif l1, simplif l2, simplif l3)
+    | Lsequence(l1, l2) -> Lsequence(simplif l1, simplif l2)
+    | Lwhile(l1, l2) -> Lwhile(simplif l1, simplif l2)
+    | Lfor(v, l1, l2, dir, l3) ->
+      Lfor(v, simplif l1, simplif l2, dir, simplif l3)
+    | Lassign(v, l) -> Lassign(v, simplif l)
+    | Lsend(k, m, o, ll, loc) ->
+      Lsend(k, simplif m, simplif o, List.map simplif ll, loc)
+    | Levent(l, ev) -> Levent(simplif l, ev)
+    | Lifused(v, l) -> Lifused(v, simplif l)
+  in
+  simplif lam
+
 module Hooks = Misc.MakeHooks(struct
     type t = lambda
   end)
@@ -699,8 +751,9 @@ module Hooks = Misc.MakeHooks(struct
 (* The entry point:
    simplification + emission of tailcall annotations, if needed. *)
 
-let simplify_lambda sourcefile lam =
+let simplify_lambda ?optcompile sourcefile lam =
   let res = simplify_lets (simplify_exits lam) in
+  let res = simplify_constants ~optcompile res in
   let res = Hooks.apply_hooks { Misc.sourcefile } res in
   if !Clflags.annotations || Warnings.is_active Warnings.Expect_tailcall
     then emit_tail_infos true res;

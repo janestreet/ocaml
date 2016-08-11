@@ -98,7 +98,7 @@ let implementation ppf sourcefile outputprefix ~backend =
                  required_globals; code } ->
           ((module_ident, main_module_block_size), code)
           +++ print_if ppf Clflags.dump_rawlambda Printlambda.lambda
-          +++ Simplif.simplify_lambda sourcefile
+          +++ Simplif.simplify_lambda ~optcompile:() sourcefile
           +++ print_if ppf Clflags.dump_lambda Printlambda.lambda
           ++ (fun ((module_ident, size), lam) ->
               Middle_end.middle_end ppf ~source_provenance
@@ -121,7 +121,7 @@ let implementation ppf sourcefile outputprefix ~backend =
         ++ Timings.(time (Generate sourcefile))
             (fun program ->
               { program with
-                Lambda.code = Simplif.simplify_lambda sourcefile
+                Lambda.code = Simplif.simplify_lambda ~optcompile:() sourcefile
                   program.Lambda.code }
               ++ print_if ppf Clflags.dump_lambda Printlambda.program
               ++ Asmgen.compile_implementation_clambda ~source_provenance

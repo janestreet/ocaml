@@ -19,7 +19,6 @@
 type t =
   | Float of float
   | Int32 of int32
-  | Int63 of int63
   | Int64 of int64
   | Nativeint of nativeint
   | Float_array of float list
@@ -45,7 +44,6 @@ let compare (x : t) (y : t) =
   match x, y with
   | Float x, Float y -> compare_floats x y
   | Int32 x, Int32 y -> compare x y
-  | Int63 x, Int63 y -> compare x y
   | Int64 x, Int64 y -> compare x y
   | Nativeint x, Nativeint y -> compare x y
   | Float_array x, Float_array y -> compare_float_lists x y
@@ -56,8 +54,6 @@ let compare (x : t) (y : t) =
   | _, Float _ -> 1
   | Int32 _, _ -> -1
   | _, Int32 _ -> 1
-  | Int63 _, _ -> -1
-  | _, Int63 _ -> 1
   | Int64 _, _ -> -1
   | _, Int64 _ -> 1
   | Nativeint _, _ -> -1
@@ -78,7 +74,6 @@ let print ppf (t : t) =
   | String s -> fprintf ppf "%S" s
   | Immutable_string s -> fprintf ppf "#%S" s
   | Int32 n -> fprintf ppf "%lil" n
-  | Int63 n -> fprintf ppf "%LiL" (Int63.to_int64 n)
   | Int64 n -> fprintf ppf "%LiL" n
   | Nativeint n -> fprintf ppf "%nin" n
   | Float f -> fprintf ppf "%f" f

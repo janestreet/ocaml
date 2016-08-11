@@ -24,7 +24,6 @@ type function_label = string
 type ustructured_constant =
   | Uconst_float of float
   | Uconst_int32 of int32
-  | Uconst_int63 of int63
   | Uconst_int64 of int64
   | Uconst_nativeint of nativeint
   | Uconst_block of int * uconstant list
