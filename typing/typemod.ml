@@ -183,7 +183,7 @@ let merge_constraint initial_env loc sg constr =
             type_loc = sdecl.ptype_loc;
             type_newtype_level = None;
             type_attributes = [];
-            type_immediate = false;
+            type_immediate = Pointer;
             type_unboxed = { unboxed = false; default = false };
           }
         and id_row = Ident.create (s^"#row") in

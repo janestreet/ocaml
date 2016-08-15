@@ -127,11 +127,12 @@ let decl_abstr =
    type_variance = [];
    type_newtype_level = None;
    type_attributes = [];
-   type_immediate = false;
+   type_immediate = Pointer;
    type_unboxed = { unboxed = false; default = false };
   }
 
-let decl_abstr_imm = {decl_abstr with type_immediate = true}
+let decl_abstr_imm = {decl_abstr with type_immediate = Immediate}
+let decl_abstr_arch_dependent = {decl_abstr with type_immediate = Architecture_dependent}
 
 let cstr id args =
   {
@@ -153,11 +154,11 @@ let common_initial_env add_type add_extension empty_env =
   let decl_bool =
     {decl_abstr with
      type_kind = Type_variant([cstr ident_false []; cstr ident_true []]);
-     type_immediate = true}
+     type_immediate = Immediate}
   and decl_unit =
     {decl_abstr with
      type_kind = Type_variant([cstr ident_void []]);
-     type_immediate = true}
+     type_immediate = Immediate}
   and decl_exn =
     {decl_abstr with
      type_kind = Type_open}
@@ -218,7 +219,7 @@ let common_initial_env add_type add_extension empty_env =
   add_extension ident_undefined_recursive_module
                          [newgenty (Ttuple[type_string; type_int; type_int])] (
   add_type ident_int64 decl_abstr (
-  add_type ident_int63 decl_abstr (
+  add_type ident_int63 decl_abstr_arch_dependent (
   add_type ident_int32 decl_abstr (
   add_type ident_nativeint decl_abstr (
   add_type ident_lazy_t decl_lazy_t (

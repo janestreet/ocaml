@@ -92,7 +92,7 @@ let enter_type env sdecl id =
       type_newtype_level = None;
       type_loc = sdecl.ptype_loc;
       type_attributes = sdecl.ptype_attributes;
-      type_immediate = false;
+      type_immediate = Pointer;
       type_unboxed = { unboxed = false; default = false };
     }
   in
@@ -433,7 +433,7 @@ let transl_declaration env sdecl id =
         type_newtype_level = None;
         type_loc = sdecl.ptype_loc;
         type_attributes = sdecl.ptype_attributes;
-        type_immediate = false;
+        type_immediate = Pointer;
         type_unboxed = unboxed_status;
       } in
 
@@ -1068,7 +1068,10 @@ let rec compute_properties_fixpoint env decls required variances immediacies =
     List.map2 (List.map2 Variance.union) new_variances variances in
   let new_immediacies =
     List.map
-      (fun (_id, decl) -> compute_immediacy new_env decl)
+      (fun (_id, decl) ->
+         if compute_immediacy new_env decl
+         then Immediate
+         else Pointer)
       new_decls
   in
   if new_variances <> variances || new_immediacies <> immediacies then
@@ -1082,7 +1085,7 @@ let rec compute_properties_fixpoint env decls required variances immediacies =
       prerr_endline "")
       new_decls; *)
     List.iter (fun (_, decl) ->
-      if (marked_as_immediate decl) && (not decl.type_immediate) then
+      if (marked_as_immediate decl) && (decl.type_immediate <> Immediate) then
         raise (Error (decl.type_loc, Bad_immediate_attribute))
       else ())
       new_decls;
@@ -1117,7 +1120,7 @@ let compute_variance_decls env cldecls =
   let (decls, _) =
     compute_properties_fixpoint env decls required
       (List.map init_variance decls)
-      (List.map (fun _ -> false) decls)
+      (List.map (fun _ -> Pointer) decls)
   in
   List.map2
     (fun (_,decl) (_, _, cl_abbr, clty, cltydef, _) ->
@@ -1301,7 +1304,7 @@ let transl_type_decl env rec_flag sdecl_list =
   let final_decls, final_env =
     compute_properties_fixpoint env decls required
       (List.map init_variance decls)
-      (List.map (fun _ -> false) decls)
+      (List.map (fun _ -> Pointer) decls)
   in
   (* Check re-exportation *)
   List.iter2 (check_abbrev final_env) sdecl_list final_decls;
@@ -1744,7 +1747,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
       type_newtype_level = None;
       type_loc = sdecl.ptype_loc;
       type_attributes = sdecl.ptype_attributes;
-      type_immediate = false;
+      type_immediate = Pointer;
       type_unboxed;
     }
   in
@@ -1759,7 +1762,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
     compute_variance_decl env true decl
       (add_injectivity (List.map snd sdecl.ptype_params), sdecl.ptype_loc)
   in
-  let type_immediate = compute_immediacy env decl in
+  let type_immediate = if compute_immediacy env decl then Immediate else Pointer in
   let decl = {decl with type_variance; type_immediate} in
   Ctype.end_def();
   generalize_decl decl;
@@ -1792,7 +1795,7 @@ let abstract_type_decl arity =
       type_newtype_level = None;
       type_loc = Location.none;
       type_attributes = [];
-      type_immediate = false;
+      type_immediate = Pointer;
       type_unboxed = { unboxed = false; default = false };
      } in
   Ctype.end_def();

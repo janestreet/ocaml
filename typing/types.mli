@@ -282,6 +282,11 @@ end
 
 (* Type definitions *)
 
+type type_immediate =
+    Immediate
+  | Pointer
+  | Architecture_dependent
+
 type type_declaration =
   { type_params: type_expr list;
     type_arity: int;
@@ -294,7 +299,7 @@ type type_declaration =
     (* definition level * expansion level *)
     type_loc: Location.t;
     type_attributes: Parsetree.attributes;
-    type_immediate: bool; (* true iff type should not be a pointer *)
+    type_immediate: type_immediate; (* true iff type should not be a pointer *)
     type_unboxed: unboxed_status;
   }
 

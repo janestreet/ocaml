@@ -2905,7 +2905,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
         type_newtype_level = Some (level, level);
         type_loc = loc;
         type_attributes = [];
-        type_immediate = false;
+        type_immediate = Pointer;
         type_unboxed = { unboxed = false; default = false };
       }
       in

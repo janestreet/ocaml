@@ -1099,7 +1099,7 @@ let new_declaration newtype manifest =
     type_newtype_level = newtype;
     type_loc = Location.none;
     type_attributes = [];
-    type_immediate = false;
+    type_immediate = Pointer;
     type_unboxed = { unboxed = false; default = false };
   }
 
@@ -4493,7 +4493,10 @@ let maybe_pointer_type env typ =
   | Tconstr(p, _args, _abbrev) ->
     begin try
       let type_decl = Env.find_type p env in
-      not type_decl.type_immediate
+      match type_decl.type_immediate with
+      | Immediate -> false
+      | Pointer -> true
+      | Architecture_dependent -> true
     with Not_found -> true
     (* This can happen due to e.g. missing -I options,
        causing some .cmi files to be unavailable.

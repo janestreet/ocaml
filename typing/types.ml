@@ -138,6 +138,11 @@ end
 
 (* Type definitions *)
 
+type type_immediate =
+    Immediate
+  | Pointer
+  | Architecture_dependent
+
 type type_declaration =
   { type_params: type_expr list;
     type_arity: int;
@@ -148,7 +153,7 @@ type type_declaration =
     type_newtype_level: (int * int) option;
     type_loc: Location.t;
     type_attributes: Parsetree.attributes;
-    type_immediate: bool;
+    type_immediate: type_immediate;
     type_unboxed: unboxed_status;
  }
 

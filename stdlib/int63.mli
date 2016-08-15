@@ -151,3 +151,10 @@ val compare: int63 -> int63 -> int
 val equal: int63 -> int63 -> bool
 (** The equal function for int63s. *)
 
+module Marshalable : sig
+  type t
+
+  val of_int63 : int63 -> t
+
+  val to_int63 : t -> int63
+end

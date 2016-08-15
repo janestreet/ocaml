@@ -396,6 +396,34 @@ let to_file outchan unit_name objfile ~required_globals code =
       cu_force_link = false;
       cu_debug = pos_debug;
       cu_debugsize = size_debug } in
+  (* let reloc_info_to_string = function
+   *   | Reloc_literal c -> "Reloc_literal " ^ (Printlambda.structured_constant Format.str_formatter c; Format.flush_str_formatter ())
+   *   | Reloc_getglobal ident -> "Reloc_getglobal " ^ Ident.name ident
+   *   | Reloc_setglobal ident -> "Reloc_setglobal " ^ Ident.name ident
+   *   | Reloc_primitive str -> "Reloc_primitive \"" ^ str ^ "\""
+   * in
+   * (Format.printf ("\n\
+   *                  cu_name = %s\n\
+   *                  cu_pos = %d\n\
+   *                  cu_codesize = %d\n\
+   *                  cu_reloc = %s\n\
+   *                  cu_imports = %s\n\
+   *                  cu_required_globals = %s\n\
+   *                  cu_primitives = %s\n\
+   *                  cu_force_link = %b\n\
+   *                  cu_debug = %d\n\
+   *                  cu_debugsize = %d\n"
+   *               )
+   *   unit_name
+   *   pos_code
+   *   (!out_position)
+   *   (String.concat ", " (List.map (fun (reloc, n) -> "(" ^ reloc_info_to_string reloc ^ ", " ^ string_of_int n ^ ")") (compunit.cu_reloc)))
+   *   (String.concat ", " (List.map (fun (str, _) -> str) (compunit.cu_imports)))
+   *   (* cu_required_globals *) (String.concat ", " (List.map Ident.name compunit.cu_required_globals))
+   *   (String.concat ", " compunit.cu_primitives)
+   *   false
+   *   pos_debug
+   *   size_debug); *)
   init();                               (* Free out_buffer and reloc_info *)
   Btype.cleanup_abbrev ();              (* Remove any cached abbreviation
                                            expansion before saving *)
@@ -403,6 +431,7 @@ let to_file outchan unit_name objfile ~required_globals code =
   output_value outchan compunit;
   seek_out outchan pos_depl;
   output_binary_int outchan pos_compunit
+  (* Format.printf "pos_depl = 0x%xd, pos_code=0x%xd, pos_compunit=0x%xd, pos_debug=0x%xd, size_debug=0x%xd\n" pos_depl pos_code pos_compunit pos_debug size_debug *)
 
 (* Emission to a memory block *)
 

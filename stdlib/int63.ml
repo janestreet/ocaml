@@ -55,3 +55,11 @@ let min_int = of_string "0x4000000000000000"
 
 let compare (x: int63) (y: int63) = Pervasives.compare x y
 let equal (x: int63) (y: int63) = compare x y = 0
+
+module Marshalable = struct
+  type t = int64
+
+  let of_int63 n = Int64.(add 1L (mul 2L (to_int64 n)))
+
+  let to_int63 t = of_int64 (Int64.shift_right t 1)
+end

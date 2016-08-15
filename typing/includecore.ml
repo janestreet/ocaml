@@ -281,8 +281,8 @@ let type_declarations ?(equality = false) env name decl1 id decl2 =
    * must be immediate, then we error *)
   let err =
     if abstr &&
-       not decl1.type_immediate &&
-       decl2.type_immediate then
+       (decl1.type_immediate <> Types.Immediate) &&
+       (decl2.type_immediate = Types.Immediate) then
       [Immediate]
     else []
   in
