@@ -154,7 +154,7 @@ let pretty_const c = match c with
 | Const_string (s, _) -> Printf.sprintf "%S" s
 | Const_float f -> Printf.sprintf "%s" f
 | Const_int32 i -> Printf.sprintf "%ldl" i
-| Const_int63 i -> Printf.sprintf "%LdL" (Int63.to_int64 i)
+| Const_int63 i -> Printf.sprintf "%LdL" (Int63.to_int64 (Int63.Marshalable.to_int63 i))
 | Const_int64 i -> Printf.sprintf "%LdL" i
 | Const_nativeint i -> Printf.sprintf "%ndn" i
 

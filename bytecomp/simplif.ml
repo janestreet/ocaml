@@ -697,7 +697,7 @@ let simplify_constants ~optcompile lam =
     | Lvar x -> Lvar x
     | Lconst (Const_base (Const_int63 n)) ->
       begin match (optcompile, Sys.word_size) with
-      | (Some (), 64) -> Lconst (Const_base (Const_int (Int63.to_int n)))
+      | (Some (), 64) -> Lconst (Const_base (Const_int (Int63.to_int (Int63.Marshalable.to_int63 n))))
       | _ -> Lconst (Const_base (Const_int63 n))
       end
     | Lconst x -> Lconst x

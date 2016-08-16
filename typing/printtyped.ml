@@ -62,7 +62,7 @@ let fmt_constant f x =
       fprintf f "Const_string (%S,Some %S)" s delim;
   | Const_float (s) -> fprintf f "Const_float %s" s;
   | Const_int32 (i) -> fprintf f "Const_int32 %ld" i;
-  | Const_int63 (i) -> fprintf f "Const_int63 %Ld" (Int63.to_int64 i);
+  | Const_int63 (i) -> fprintf f "Const_int63 %Ld" (Int63.to_int64 (Int63.Marshalable.to_int63 i));
   | Const_int64 (i) -> fprintf f "Const_int64 %Ld" i;
   | Const_nativeint (i) -> fprintf f "Const_nativeint %nd" i;
 ;;

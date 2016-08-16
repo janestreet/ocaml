@@ -61,5 +61,5 @@ module Marshalable = struct
 
   let of_int63 n = Int64.(add 1L (mul 2L (to_int64 n)))
 
-  let to_int63 t = of_int64 (Int64.shift_right t 1)
+  let to_int63 t = of_int64 (Int64.shift_right_logical t 1)
 end

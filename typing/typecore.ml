@@ -284,7 +284,7 @@ let constant : Parsetree.constant -> (Asttypes.constant, error) result =
      end
   | Pconst_integer (i,Some 't') ->
      begin
-       try Ok (Const_int63 (Misc.Int_literal_converter.int63 i))
+       try Ok (Const_int63 (Int63.Marshalable.of_int63 (Misc.Int_literal_converter.int63 i)))
        with Failure _ -> Error (Literal_overflow "int63")
      end
   | Pconst_integer (i,Some 'n') ->

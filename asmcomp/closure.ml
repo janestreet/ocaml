@@ -811,7 +811,7 @@ let rec close fenv cenv = function
             str ~shared:Config.safe_string (Uconst_string s)
         | Const_base(Const_float x) -> str (Uconst_float (float_of_string x))
         | Const_base(Const_int32 x) -> str (Uconst_int32 x)
-        | Const_base(Const_int63 x) -> str (Uconst_int64 Int64.(add 1L (mul (Int63.to_int64 x) 2L)))
+        | Const_base(Const_int63 x) -> str (Uconst_int64 Int64.(add 1L (mul (Int63.to_int64 (Int63.Marshalable.to_int63 x)) 2L)))
         | Const_base(Const_int64 x) -> str (Uconst_int64 x)
         | Const_base(Const_nativeint x) -> str (Uconst_nativeint x)
       in
