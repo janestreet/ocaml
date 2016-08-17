@@ -142,6 +142,7 @@ val no_overflow_lsl: int -> int -> bool
 module Int_literal_converter : sig
   val int : string -> int
   val int32 : string -> int32
+  val int63 : string -> int63
   val int64 : string -> int64
   val nativeint : string -> nativeint
 end

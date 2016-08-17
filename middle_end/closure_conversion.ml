@@ -133,6 +133,7 @@ let rec close_const t env (const : Lambda.structured_constant)
   | Const_base (Const_float c) ->
     Allocated_const (Float (float_of_string c)), "float"
   | Const_base (Const_int32 c) -> Allocated_const (Int32 c), "int32"
+  | Const_base (Const_int63 c) -> Allocated_const (Int63 c), "int63"
   | Const_base (Const_int64 c) -> Allocated_const (Int64 c), "int64"
   | Const_base (Const_nativeint c) ->
     Allocated_const (Nativeint c), "nativeint"

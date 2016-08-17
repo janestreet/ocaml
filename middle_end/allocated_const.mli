@@ -23,6 +23,7 @@
 type t =
   | Float of float
   | Int32 of int32
+  | Int63 of int63
   | Int64 of int64
   | Nativeint of nativeint
   (* CR-someday mshinwell: consider using "float array" *)

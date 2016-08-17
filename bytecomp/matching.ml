@@ -2270,7 +2270,12 @@ let combine_constant loc arg cst partial ctx def
           fail
           (Pbintcomp(Pint32, Cneq)) (Pbintcomp(Pint32, Clt))
           arg const_lambda_list
-    | Const_int64 _ ->
+    | Const_int63 _ ->
+        make_test_sequence loc
+          fail
+          (Pintcomp63 Cneq) (Pintcomp63 Clt)
+          arg const_lambda_list
+   | Const_int64 _ ->
         make_test_sequence loc
           fail
           (Pbintcomp(Pint64, Cneq)) (Pbintcomp(Pint64, Clt))

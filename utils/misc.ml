@@ -285,6 +285,7 @@ module Int_literal_converter = struct
     else neg (of_string ("-" ^ str))
   let int s = cvt_int_aux s (~-) int_of_string
   let int32 s = cvt_int_aux s Int32.neg Int32.of_string
+  let int63 s = cvt_int_aux s Int63.neg Int63.of_string
   let int64 s = cvt_int_aux s Int64.neg Int64.of_string
   let nativeint s = cvt_int_aux s Nativeint.neg Nativeint.of_string
 end
