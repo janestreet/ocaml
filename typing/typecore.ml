@@ -4774,7 +4774,7 @@ and type_cases ?in_function env ty_arg ty_res partial_flag loc caselist =
      [has_constructor], but I'm not sure it's worth it. *)
   let do_init = may_contain_gadts || needs_exhaust_check in
   let lev =
-    if do_init && not may_contain_gadts then init_env () else lev in
+    if do_init then init_env () else lev in
   let ty_arg_check =
     if do_init then
       (* Hack: use for_saving to copy variables too *)
@@ -4804,6 +4804,7 @@ and type_cases ?in_function env ty_arg ty_res partial_flag loc caselist =
   (* Check for unused cases, do not delay because of gadts *)
   if do_init then begin
     end_def ();
+    if may_contain_gadts then end_def ();
     (* Ensure that existential types do not escape *)
     unify_exp_types loc env (instance ty_res) (newvar ()) ;
   end;
