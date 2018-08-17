@@ -47,7 +47,7 @@ Line _, characters 4-10:
 Error: This pattern matches values of type ($1, $1, visit_action) context
        but a pattern was expected which matches values of type
          ($0, $0 * insert, visit_action) context
-       Type $1 is not compatible with type $0
+       The type constructor $1 would escape its scope
 |}];;
 
 let vexpr (type visit_action)
@@ -72,7 +72,7 @@ Line _, characters 4-10:
 Error: This pattern matches values of type ($1, $1, visit_action) context
        but a pattern was expected which matches values of type
          ($0, $0 * insert, visit_action) context
-       Type $1 is not compatible with type $0
+       The type constructor $1 would escape its scope
 |}];;
 
 let vexpr (type result) (type visit_action)
