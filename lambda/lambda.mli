@@ -337,6 +337,10 @@ and lambda_event_kind =
   | Lev_pseudo
   | Lev_module_definition of Ident.t
 
+type pack_member =
+    PM_intf of Ident.t
+  | PM_impl of Ident.t * Compilation_unit.t list * bool
+
 type program =
   { module_ident : Ident.t;
     main_module_block_size : int;

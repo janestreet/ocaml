@@ -14,6 +14,8 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
+open Backend_sym.Names
+
 module V = Backend_var
 module VP = Backend_var.With_provenance
 
@@ -34,7 +36,6 @@ let reverse_shape = ref ([] : Mach.spacetime_shape)
    in [Cmmgen]. *)
 let cconst_int i = Cmm.Cconst_int (i, Debuginfo.none)
 let cconst_natint i = Cmm.Cconst_natint (i, Debuginfo.none)
-let cconst_symbol s = Cmm.Cconst_symbol (s, Debuginfo.none)
 
 let something_was_instrumented () =
   !index_within_node > node_num_header_words
@@ -109,8 +110,8 @@ let code_for_function_prologue ~function_name ~fun_dbg:dbg ~node_hole =
           Cvar node,
           dbg,
           Clet (VP.create is_new_node,
-            Clet (VP.create pc, cconst_symbol function_name,
-              Cop (Cextcall ("caml_spacetime_allocate_node",
+            Clet (VP.create pc, Cconst_symbol (function_name, dbg),
+              Cop (Cextcall (caml_spacetime_allocate_node,
                   [| Int |], false, None),
                 [cconst_int (1 (* header *) + !index_within_node);
                 Cvar pc;
@@ -151,7 +152,7 @@ let code_for_blockheader ~value's_header ~node ~dbg =
        the latter table to be used for resolving a program counter at such
        a point to a location.
     *)
-    Cop (Cextcall ("caml_spacetime_generate_profinfo", [| Int |],
+    Cop (Cextcall (caml_spacetime_generate_profinfo, [| Int |],
         false, Some label),
       [Cvar address_of_profinfo;
        cconst_int (index_within_node + 1)],
@@ -207,7 +208,7 @@ let code_for_blockheader ~value's_header ~node ~dbg =
             Cop (Cxor, [Cvar profinfo; cconst_natint value's_header], dbg))))))
 
 type callee =
-  | Direct of string
+  | Direct of Backend_sym.t
   | Indirect of Cmm.expression
 
 let code_for_call ~node ~callee ~is_tail ~label dbg =
@@ -218,7 +219,7 @@ let code_for_call ~node ~callee ~is_tail ~label dbg =
     | Direct callee ->
       begin match !current_function_label with
       | None -> Misc.fatal_error "[current_function_label] not set"
-      | Some label -> String.equal callee label
+      | Some label -> Backend_sym.equal callee label
       end
     | Indirect _ -> false
   in
@@ -271,7 +272,7 @@ let code_for_call ~node ~callee ~is_tail ~label dbg =
         if is_tail then node
         else cconst_int 1  (* [Val_unit] *)
       in
-      Cop (Cextcall ("caml_spacetime_indirect_node_hole_ptr",
+      Cop (Cextcall (caml_spacetime_indirect_node_hole_ptr,
           [| Int |], false, None),
         [callee; Cvar place_within_node; caller_node],
         dbg))
@@ -391,7 +392,7 @@ class virtual instruction_selection = object (self)
       let label = Cmm.new_label () in
       let index =
         next_index_within_node
-          ~part_of_shape:(Mach.Direct_call_point { callee = "caml_call_gc"; })
+          ~part_of_shape:(Mach.Direct_call_point { callee = caml_call_gc; })
           ~label
       in
       Mach.Ialloc {
@@ -421,7 +422,7 @@ class virtual instruction_selection = object (self)
       let index =
         next_index_within_node
           ~part_of_shape:(
-            Mach.Direct_call_point { callee = "caml_ml_array_bound_error"; })
+            Mach.Direct_call_point { callee = caml_ml_array_bound_error; })
           ~label
       in
       Mach.Icheckbound {

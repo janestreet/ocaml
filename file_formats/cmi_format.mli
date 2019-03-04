@@ -20,11 +20,13 @@ type pers_flags =
   | Alerts of alerts
   | Opaque
   | Unsafe_string
+  | Pack of Compilation_unit.Prefix.t
+  | Parameter_of of Compilation_unit.t
 
 type cmi_infos = {
-    cmi_name : modname;
-    cmi_sign : Types.signature_item list;
-    cmi_crcs : crcs;
+    cmi_name : Compilation_unit.Name.t;
+    cmi_type : Types.compilation_unit;
+    cmi_crcs : Compilation_unit.crcs;
     cmi_flags : pers_flags list;
 }
 

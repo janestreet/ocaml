@@ -30,7 +30,9 @@ let init_path () = Compmisc.init_path ()
 
 (** Return the initial environment in which compilation proceeds. *)
 let initial_env () =
-  let current = Env.get_unit_name () in
+  let current =
+    Compilation_unit.(
+      Name.to_string (name (Persistent_env.Current_unit.get_exn ()))) in
   let initial = !Odoc_global.initially_opened_module in
   let initially_opened_module =
     if initial = current then
@@ -72,8 +74,10 @@ let no_docstring f x =
 let process_implementation_file sourcefile =
   init_path ();
   let prefixname = Filename.chop_extension sourcefile in
-  let modulename = String.capitalize_ascii(Filename.basename prefixname) in
-  Env.set_unit_name modulename;
+  let modulename =
+    Compilation_unit.Name.of_string
+      (String.capitalize_ascii(Filename.basename prefixname)) in
+  Persistent_env.Current_unit.set modulename;
   let inputfile = preprocess sourcefile in
   let env = initial_env () in
   try
@@ -106,14 +110,16 @@ let process_implementation_file sourcefile =
 let process_interface_file sourcefile =
   init_path ();
   let prefixname = Filename.chop_extension sourcefile in
-  let modulename = String.capitalize_ascii(Filename.basename prefixname) in
-  Env.set_unit_name modulename;
+  let modulename =
+    Compilation_unit.Name.of_string
+      (String.capitalize_ascii(Filename.basename prefixname)) in
+  Persistent_env.Current_unit.set modulename;
   let inputfile = preprocess sourcefile in
   let ast =
     Pparse.file ~tool_name inputfile
       (no_docstring Parse.interface) Pparse.Signature
   in
-  let sg = Typemod.type_interface (initial_env()) ast in
+  let sg = Typemod.type_interface sourcefile (initial_env()) ast in
   Warnings.check_fatal ();
   (ast, sg, inputfile)
 
@@ -181,9 +187,13 @@ let process_file sourcefile =
       (
        Location.input_name := file;
        try
-         let (ast, signat, input_file) = process_interface_file file in
+         let (ast, intf, input_file) = process_interface_file file in
+         let sg = match intf.tintf_type with
+             Types.Unit_signature sg -> sg
+           | Types.Unit_functor (_, sg) -> sg
+         in
          let file_module = Sig_analyser.analyse_signature file
-             input_file ast signat.sig_type
+             input_file ast sg
          in
 
          file_module.Odoc_module.m_top_deps <- Odoc_dep.intf_dependencies ast ;

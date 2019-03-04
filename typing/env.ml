@@ -24,6 +24,7 @@ open Types
 open Btype
 
 module String = Misc.Stdlib.String
+module CU = Compilation_unit
 
 let add_delayed_check_forward = ref (fun _ -> assert false)
 
@@ -94,6 +95,10 @@ type summary =
 type address =
   | Aident of Ident.t
   | Adot of address * int
+
+let rec address_head = function
+    Aident id -> id
+  | Adot (addr, _) -> address_head addr
 
 module TycompTbl =
   struct
@@ -531,6 +536,7 @@ type lookup_error =
 type error =
   | Missing_module of Location.t * Path.t * Path.t
   | Illegal_value_name of Location.t * string
+  | Parameter_interface_unavailable of Location.t * Compilation_unit.Name.t
   | Lookup_error of Location.t * t * lookup_error
 
 exception Error of error
@@ -656,52 +662,22 @@ let rec print_address ppf = function
   | Aident id -> Format.fprintf ppf "%s" (Ident.name id)
   | Adot(a, pos) -> Format.fprintf ppf "%a.[%i]" print_address a pos
 
-(* The name of the compilation unit currently compiled.
-   "" if outside a compilation unit. *)
-module Current_unit_name : sig
-  val get : unit -> modname
-  val set : modname -> unit
-  val is : modname -> bool
-  val is_name_of : Ident.t -> bool
-end = struct
-  let current_unit =
-    ref ""
-  let get () =
-    !current_unit
-  let set name =
-    current_unit := name
-  let is name =
-    !current_unit = name
-  let is_name_of id =
-    is (Ident.name id)
-end
-
-let set_unit_name = Current_unit_name.set
-let get_unit_name = Current_unit_name.get
 
 let find_same_module id tbl =
   match IdTbl.find_same id tbl with
   | x -> x
   | exception Not_found
-    when Ident.persistent id && not (Current_unit_name.is_name_of id) ->
+    when Ident.persistent id
+      && not (Persistent_env.Current_unit.is_ident_name_of id) ->
       Mod_persistent
 
 let find_name_module ~mark name tbl =
   match IdTbl.find_name wrap_module ~mark name tbl with
   | x -> x
-  | exception Not_found when not (Current_unit_name.is name) ->
+  | exception Not_found
+    when not (Persistent_env.Current_unit.is_name_of name) ->
       let path = Pident(Ident.create_persistent name) in
       path, Mod_persistent
-
-let add_persistent_structure id env =
-  if not (Ident.persistent id) then invalid_arg "Env.add_persistent_structure";
-  if not (Current_unit_name.is_name_of id) then
-    { env with
-      modules = IdTbl.add id Mod_persistent env.modules;
-      summary = Env_persistent (env.summary, id);
-    }
-  else
-    env
 
 let components_of_module ~alerts ~loc env fs ps path addr mty =
   {
@@ -717,22 +693,48 @@ let components_of_module ~alerts ~loc env fs ps path addr mty =
     }
   }
 
-let sign_of_cmi ~freshen { Persistent_env.Persistent_signature.cmi; _ } =
-  let name = cmi.cmi_name in
-  let sign = cmi.cmi_sign in
+let compilation_unit_type_of_module_type = function
+    Mty_signature sg -> Unit_signature sg
+  | Mty_functor _ as mty ->
+      let rec translate acc = function
+          Mty_signature sg ->
+            Unit_functor (List.rev acc, sg)
+        | Mty_functor (Named (Some id, mty), mty') ->
+            translate ((id, mty) :: acc) mty'
+        | _ -> failwith "[compilation_unit_type_of_module_type] \
+                         illformed compilation unit type"
+      in
+      translate [] mty
+  | _ -> failwith "[compilation_unit_type_of_module_type] \
+                   illformed compilation unit type"
+
+let type_of_cmi ~freshen { Persistent_env.Persistent_interface.cmi; _ } =
+  let name = CU.Name.to_string cmi.cmi_name in
+  let uty = cmi.cmi_type in
   let flags = cmi.cmi_flags in
   let id = Ident.create_persistent name in
   let path = Pident id in
+  let prefix =
+    List.find_opt (function Pack _ -> true | _ -> false) flags
+    |> function
+      Some (Pack prefix) -> prefix
+    | _ -> []
+  in
+  let addr_id = Ident.create_persistent ~prefix name in
+  let pers_address = match uty with
+      Unit_functor _ -> Adot (Aident addr_id, 0)
+    | Unit_signature _ -> Aident addr_id
+  in
   let alerts =
     List.fold_left (fun acc -> function Alerts s -> s | _ -> acc)
       Misc.Stdlib.String.Map.empty
       flags
   in
   let loc = Location.none in
-  let md = md (Mty_signature sign) in
-  let mda_address = EnvLazy.create_forced (Aident id) in
+  let mty = Types.module_type_of_compilation_unit uty in
+  let mda_address = EnvLazy.create_forced pers_address in
   let mda_declaration =
-    EnvLazy.create (Subst.identity, Subst.Make_local, md)
+    EnvLazy.create (Subst.identity, Subst.Make_local, md mty)
   in
   let mda_components =
     let freshening_subst =
@@ -740,7 +742,7 @@ let sign_of_cmi ~freshen { Persistent_env.Persistent_signature.cmi; _ } =
     in
     components_of_module ~alerts ~loc
       empty freshening_subst Subst.identity
-      path mda_address (Mty_signature sign)
+      path mda_address mty
   in
   {
     mda_declaration;
@@ -748,35 +750,60 @@ let sign_of_cmi ~freshen { Persistent_env.Persistent_signature.cmi; _ } =
     mda_address;
   }
 
-let read_sign_of_cmi = sign_of_cmi ~freshen:true
+let read_type_of_cmi = type_of_cmi ~freshen:true
 
-let save_sign_of_cmi = sign_of_cmi ~freshen:false
+let save_type_of_cmi = type_of_cmi ~freshen:false
 
 let persistent_env : module_data Persistent_env.t =
   Persistent_env.empty ()
+
+let add_persistent_structure id env =
+  if not (Ident.persistent id) then invalid_arg "Env.add_persistent_structure";
+  if not (Persistent_env.Current_unit.is_ident_name_of id) then
+    { env with
+      modules = IdTbl.add id Mod_persistent env.modules;
+      summary = Env_persistent (env.summary, id);
+    }
+  else
+    env
 
 let without_cmis f x =
   Persistent_env.without_cmis persistent_env f x
 
 let imports () = Persistent_env.imports persistent_env
 
+let functorized_pack_imports () =
+  Persistent_env.imports_from_functorized_pack persistent_env
+
 let import_crcs ~source crcs =
   Persistent_env.import_crcs persistent_env ~source crcs
 
 let read_pers_mod modname filename =
-  Persistent_env.read persistent_env read_sign_of_cmi modname filename
+  Persistent_env.read persistent_env read_type_of_cmi modname filename
 
 let find_pers_mod name =
-  Persistent_env.find persistent_env read_sign_of_cmi name
+  Persistent_env.find persistent_env read_type_of_cmi name
+
+let read_as_parameter modname =
+  Persistent_env.read_as_parameter persistent_env read_type_of_cmi modname
 
 let check_pers_mod ~loc name =
-  Persistent_env.check persistent_env read_sign_of_cmi ~loc name
+  Persistent_env.check persistent_env read_type_of_cmi ~loc name
 
 let crc_of_unit name =
-  Persistent_env.crc_of_unit persistent_env read_sign_of_cmi name
+  Persistent_env.crc_of_unit persistent_env read_type_of_cmi name
 
 let is_imported_opaque modname =
   Persistent_env.is_imported_opaque persistent_env modname
+
+let is_imported_as_parameter modname =
+  Persistent_env.is_imported_as_parameter persistent_env modname
+
+let is_imported_from_functorized_pack unit =
+  Persistent_env.is_imported_from_functorized_pack persistent_env unit
+
+let functorized_pack_component_id unit =
+  Persistent_env.functorized_pack_component_id persistent_env unit
 
 let reset_declaration_caches () =
   Hashtbl.clear value_declarations;
@@ -786,7 +813,7 @@ let reset_declaration_caches () =
   ()
 
 let reset_cache () =
-  Current_unit_name.set "";
+  Persistent_env.Current_unit.set ~prefix:[] CU.Name.dummy;
   Persistent_env.clear persistent_env;
   reset_declaration_caches ();
   ()
@@ -842,7 +869,7 @@ let find_ident_module id env =
   match find_same_module id env.modules with
   | Mod_local data -> data
   | Mod_unbound _ -> raise Not_found
-  | Mod_persistent -> find_pers_mod (Ident.name id)
+  | Mod_persistent -> find_pers_mod (CU.Name.of_string (Ident.name id))
 
 let rec find_module_components path env =
   match path with
@@ -997,11 +1024,22 @@ let rec find_module_address path env =
   | Papply _ -> raise Not_found
 
 and force_address = function
-  | Projection { parent; pos } -> Adot(get_address parent, pos)
-  | ModAlias { env; path } -> find_module_address path env
+  | Projection { parent; pos } ->
+      Adot(get_address parent, pos)
+  | ModAlias { env; path } ->
+      find_module_address path env
 
 and get_address a =
   EnvLazy.force force_address a
+
+let find_pers_address id =
+  if not (Ident.persistent id) then raise Not_found;
+  (find_pers_mod (CU.Name.of_string (Ident.name id))).mda_address
+
+let find_pers_address_ident id =
+  match get_address (find_pers_address id) with
+    Aident id -> id
+  | _ -> id
 
 let find_value_address path env =
   get_address (find_value_full path env).vda_address
@@ -1050,9 +1088,10 @@ let required_globals = ref []
 let reset_required_globals () = required_globals := []
 let get_required_globals () = !required_globals
 let add_required_global id =
-  if Ident.global id && not !Clflags.transparent_modules
-  && not (List.exists (Ident.same id) !required_globals)
-  then required_globals := id :: !required_globals
+  if Ident.persistent id && not !Clflags.transparent_modules then
+    let id = address_head (get_address (find_pers_address id)) in
+    if not (List.exists (Ident.same id) !required_globals)
+    then required_globals := id :: !required_globals
 
 let rec normalize_module_path lax env = function
   | Pident id as path when lax && Ident.persistent id ->
@@ -1076,7 +1115,7 @@ and expand_module_path lax env path =
       if lax || !Clflags.transparent_modules then path' else
       let id = Path.head path in
       if Ident.global id && not (Ident.same id (Path.head path'))
-      then add_required_global id;
+      then add_required_global (find_pers_address_ident id);
       path'
   | _ -> path
   with Not_found when lax
@@ -1223,7 +1262,8 @@ let rec scrape_alias_for_visit env (sub : Subst.t option) mty =
       begin match may_subst Subst.module_path sub path with
       | Pident id
         when Ident.persistent id
-          && not (Persistent_env.looked_up persistent_env (Ident.name id)) ->
+          && not (Persistent_env.looked_up persistent_env
+                    (CU.Name.of_string (Ident.name id))) ->
           false
       | path -> (* PR#6600: find_module may raise Not_found *)
           try scrape_alias_for_visit env sub (find_module path env).md_type
@@ -1263,7 +1303,8 @@ let iter_env wrap proj1 proj2 f env () =
            iter_components (Pident id) path data.mda_components
        | Mod_persistent ->
            let modname = Ident.name id in
-           match Persistent_env.find_in_cache persistent_env modname with
+           match Persistent_env.find_in_cache persistent_env
+                   (CU.Name.of_string modname) with
            | None -> ()
            | Some data ->
                iter_components (Pident id) path data.mda_components)
@@ -1285,7 +1326,7 @@ let same_types env1 env2 =
 
 let used_persistent () =
   Persistent_env.fold persistent_env
-    (fun s _m r -> Concr.add s r)
+    (fun s _m r -> Concr.add (CU.Name.to_string s) r)
     Concr.empty
 
 let find_all_comps wrap proj s (p, mda) =
@@ -1550,13 +1591,14 @@ let rec components_of_module_maker
               Builtin_attributes.alerts_of_attrs md.md_attributes
             in
             let comps =
-              components_of_module ~alerts ~loc:md.md_loc !env freshening_sub
+              components_of_module ~alerts ~loc:md.md_loc
+                !env freshening_sub
                 prefixing_sub path addr md.md_type
             in
             let mda =
               { mda_declaration = md';
                 mda_components = comps;
-                mda_address = addr }
+                mda_address = addr; }
             in
             c.comp_modules <-
               NameMap.add (Ident.name id) mda c.comp_modules;
@@ -1744,7 +1786,7 @@ and store_module ~check ~freshening_sub id addr presence md env =
   let mda =
     { mda_declaration = module_decl_lazy;
       mda_components = comps;
-      mda_address = addr }
+      mda_address = addr; }
   in
   { env with
     modules = IdTbl.add id (Mod_local mda) env.modules;
@@ -2035,13 +2077,19 @@ let open_signature
   end
   else open_signature None root env
 
-(* Read a signature from a file *)
-let read_signature modname filename =
+(* Read a module type from a file *)
+let read_interface modname filename =
   let mda = read_pers_mod modname filename in
   let md = EnvLazy.force subst_modtype_maker mda.mda_declaration in
-  match md.md_type with
-  | Mty_signature sg -> sg
-  | Mty_ident _ | Mty_functor _ | Mty_alias _ -> assert false
+  compilation_unit_type_of_module_type md.md_type
+
+let read_as_parameter loc modname =
+  let psig = read_as_parameter modname in
+  match psig with
+    Some Persistent_env.Persistent_interface.{ cmi } ->
+      Types.module_type_of_compilation_unit cmi.Cmi_format.cmi_type
+  | None ->
+      raise (Error(Parameter_interface_unavailable (loc, modname)))
 
 let is_identchar_latin1 = function
   | 'A'..'Z' | 'a'..'z' | '_' | '\192'..'\214' | '\216'..'\246'
@@ -2070,28 +2118,28 @@ let persistent_structures_of_dir dir =
     |> Seq.filter_map unit_name_of_filename
     |> String.Set.of_seq
 
-(* Save a signature to a file *)
-let save_signature_with_transform cmi_transform ~alerts sg modname filename =
+(* Save a module type to a file *)
+let save_interface_with_transform cmi_transform ~alerts uty modname filename =
   Btype.cleanup_abbrev ();
   Subst.reset_for_saving ();
-  let sg = Subst.signature Make_local (Subst.for_saving Subst.identity) sg in
+  let uty = Subst.compilation_unit Make_local (Subst.for_saving Subst.identity) uty in
   let cmi =
-    Persistent_env.make_cmi persistent_env modname sg alerts
+    Persistent_env.make_cmi persistent_env modname uty alerts
     |> cmi_transform in
-  let pm = save_sign_of_cmi
-      { Persistent_env.Persistent_signature.cmi; filename } in
+  let pm = save_type_of_cmi
+      { Persistent_env.Persistent_interface.cmi; filename } in
   Persistent_env.save_cmi persistent_env
-    { Persistent_env.Persistent_signature.filename; cmi } pm;
+    { Persistent_env.Persistent_interface.filename; cmi } pm;
   cmi
 
-let save_signature ~alerts sg modname filename =
-  save_signature_with_transform (fun cmi -> cmi)
-    ~alerts sg modname filename
+let save_interface ~alerts uty modname filename =
+  save_interface_with_transform (fun cmi -> cmi)
+    ~alerts uty modname filename
 
-let save_signature_with_imports ~alerts sg modname filename imports =
+let save_interface_with_imports ~alerts uty modname filename imports =
   let with_imports cmi = { cmi with cmi_crcs = imports } in
-  save_signature_with_transform with_imports
-    ~alerts sg modname filename
+  save_interface_with_transform with_imports
+    ~alerts uty modname filename
 
 (* Make the initial environment *)
 let (initial_safe_string, initial_unsafe_string) =
@@ -2313,14 +2361,14 @@ let lookup_ident_module (type a) (load : a load) ~errors ~use ~loc s env =
   | Mod_persistent -> begin
       match load with
       | Don't_load ->
-          check_pers_mod ~loc s;
+          check_pers_mod ~loc (CU.Name.of_string s);
           path, (() : a)
       | Load -> begin
-          match find_pers_mod s with
+          match find_pers_mod (CU.Name.of_string s) with
           | mda ->
               use_module ~use ~loc s path mda;
               path, (mda : a)
-          | exception Not_found ->
+          | exception (Not_found | CU.Error (Bad_compilation_unit_name _ )) ->
               may_lookup_error errors loc env (Unbound_module (Lident s))
         end
     end
@@ -2764,9 +2812,10 @@ let bound_module name env =
   match IdTbl.find_name wrap_module ~mark:false name env.modules with
   | _ -> true
   | exception Not_found ->
-      if Current_unit_name.is name then false
+      let cu_name = CU.Name.of_string name in
+      if Persistent_env.Current_unit.is cu_name then false
       else begin
-        match find_pers_mod name with
+        match find_pers_mod cu_name with
         | _ -> true
         | exception Not_found -> false
       end
@@ -2849,7 +2898,8 @@ let fold_modules f lid env acc =
                in
                f name p md acc
            | Mod_persistent ->
-               match Persistent_env.find_in_cache persistent_env name with
+               match Persistent_env.find_in_cache persistent_env
+                       (CU.Name.of_string name) with
                | None -> acc
                | Some mda ->
                    let md =
@@ -2910,7 +2960,8 @@ let filter_non_loaded_persistent f env =
          | Mod_local _ -> acc
          | Mod_unbound _ -> acc
          | Mod_persistent ->
-             match Persistent_env.find_in_cache persistent_env name with
+             match Persistent_env.find_in_cache persistent_env
+                     (CU.Name.of_string name) with
              | Some _ -> acc
              | None ->
                  if f (Ident.create_persistent name) then
@@ -3144,6 +3195,9 @@ let report_error ppf = function
   | Illegal_value_name(_loc, name) ->
       fprintf ppf "'%s' is not a valid value identifier."
         name
+  | Parameter_interface_unavailable (_loc, name) ->
+      fprintf ppf "No compiled interface found for this unit parameter %a"
+        Compilation_unit.Name.print name
   | Lookup_error(loc, t, err) -> report_lookup_error loc t ppf err
 
 let () =
@@ -3154,6 +3208,7 @@ let () =
             match err with
             | Missing_module (loc, _, _)
             | Illegal_value_name (loc, _)
+              | Parameter_interface_unavailable (loc, _)
             | Lookup_error(loc, _, _) -> loc
           in
           let error_of_printer =

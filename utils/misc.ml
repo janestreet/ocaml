@@ -232,6 +232,10 @@ module Stdlib = struct
 
     let print ppf t =
       Format.pp_print_string ppf t
+
+    let is_prefix t ~prefix =
+      length prefix <= length t
+        && equal (sub t 0 (length prefix)) prefix
   end
 
   external compare : 'a -> 'a -> int = "%compare"
@@ -864,8 +868,6 @@ let print_if ppf flag printer arg =
 
 
 type filepath = string
-type modname = string
-type crcs = (modname * Digest.t option) list
 
 type alerts = string Stdlib.String.Map.t
 

@@ -49,7 +49,7 @@ include Identifiable.Make (struct
 
   let print ppf t =
     if Compilation_unit.equal t.compilation_unit
-        (Compilation_unit.get_current_exn ())
+        (Persistent_env.Current_unit.get_exn ())
     then begin
       Format.fprintf ppf "%s/%d"
         t.name t.name_stamp
@@ -66,7 +66,7 @@ let create_with_name_string ?current_compilation_unit name =
   let compilation_unit =
     match current_compilation_unit with
     | Some compilation_unit -> compilation_unit
-    | None -> Compilation_unit.get_current_exn ()
+    | None -> Persistent_env.Current_unit.get_exn ()
   in
   let name_stamp =
     incr previous_name_stamp;
@@ -93,6 +93,8 @@ let in_compilation_unit t cu =
 let get_compilation_unit t = t.compilation_unit
 
 let name t = t.name
+
+let stamp t = t.name_stamp
 
 let unique_name t =
   t.name ^ "_" ^ (Int.to_string t.name_stamp)

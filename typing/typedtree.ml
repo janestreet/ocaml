@@ -641,6 +641,32 @@ let exists_pattern f p =
   | exception Found -> true
   | () -> false
 
+(* Type of implementation and interfaces *)
+
+type implementation =
+  {
+    timpl_desc: implementation_desc;
+    timpl_type: Types.compilation_unit;
+    timpl_env: Env.t;
+  }
+
+and implementation_desc =
+  | Timpl_structure of structure
+  | Timpl_functor of (Ident.t * Types.module_type) list * structure
+  (* The functor is indeed currified at compilation, but there is no need to
+     represent it as is in the typedtree *)
+
+type interface =
+  {
+    tintf_desc: interface_desc;
+    tintf_type: Types.compilation_unit;
+    tintf_env: Env.t;
+  }
+
+and interface_desc =
+  | Tintf_signature of signature
+  | Tintf_functor of (Ident.t * Types.module_type) list * signature
+
 (* List the identifiers bound by a pattern or a let *)
 
 let rec iter_bound_idents f pat =

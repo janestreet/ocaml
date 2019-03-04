@@ -16,8 +16,8 @@
 open Typedtree;;
 open Format;;
 
-val interface : formatter -> signature -> unit;;
-val implementation : formatter -> structure -> unit;;
+val interface : formatter -> interface -> unit;;
+val implementation : formatter -> implementation -> unit;;
 
 val implementation_with_coercion :
-    formatter -> (structure * module_coercion) -> unit;;
+    formatter -> (implementation * module_coercion) -> unit;;

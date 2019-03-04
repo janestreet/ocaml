@@ -26,8 +26,6 @@ let name_expr = Flambda_utils.name_expr
 let name_expr_from_var = Flambda_utils.name_expr_from_var
 
 type t = {
-  current_unit_id : Ident.t;
-  symbol_for_global' : (Ident.t -> Symbol.t);
   filename : string;
   backend : (module Backend_intf.S);
   mutable imported_symbols : Symbol.Set.t;
@@ -106,7 +104,7 @@ let tupled_function_call_stub original_params unboxed_version ~closure_bound_var
 let register_const t (constant:Flambda.constant_defining_value) name
     : Flambda.constant_defining_value_block_field * Internal_variable_names.t =
   let var = Variable.create name in
-  let symbol = Symbol.of_variable var in
+  let symbol = Symbol.for_lifted_variable var in
   t.declared_symbols <- (symbol, constant) :: t.declared_symbols;
   Symbol symbol, name
 
@@ -333,9 +331,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
     let zero = Variable.create Names.zero in
     let is_zero = Variable.create Names.is_zero in
     let exn = Variable.create Names.division_by_zero in
-    let exn_symbol =
-      t.symbol_for_global' Predef.ident_division_by_zero
-    in
+    let exn_symbol = Symbol.for_predefined_exn Predef.ident_division_by_zero in
     let dbg = Debuginfo.from_location loc in
     let zero_const : Flambda.named =
       match prim with
@@ -455,21 +451,25 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
         (Lambda.Llet(Strict, Pgenval, Ident.create_local "dummy",
                      arg, Lconst const))
   | Lprim (Pfield _, [Lprim (Pgetglobal id, [],_)], _)
-      when Ident.same id t.current_unit_id ->
+      when Ident.same id (Persistent_env.Current_unit.get_id_exn ()) ->
     Misc.fatal_errorf "[Pfield (Pgetglobal ...)] for the current compilation \
         unit is forbidden upon entry to the middle end"
   | Lprim (Psetfield (_, _, _), [Lprim (Pgetglobal _, [], _); _], _) ->
     Misc.fatal_errorf "[Psetfield (Pgetglobal ...)] is \
         forbidden upon entry to the middle end"
   | Lprim (Pgetglobal id, [], _) when Ident.is_predef id ->
-    let symbol = t.symbol_for_global' id in
+    let symbol = Symbol.for_predefined_exn id in
     t.imported_symbols <- Symbol.Set.add symbol t.imported_symbols;
     name_expr (Symbol symbol) ~name:Names.predef_exn
   | Lprim (Pgetglobal id, [], _) ->
-    assert (not (Ident.same id t.current_unit_id));
-    let symbol = t.symbol_for_global' id in
-    t.imported_symbols <- Symbol.Set.add symbol t.imported_symbols;
-    name_expr (Symbol symbol) ~name:Names.pgetglobal
+    assert (not (Ident.same id (Persistent_env.Current_unit.get_id_exn ())));
+    begin match Compilation_state.compilation_unit_for_global id with
+    | Predef -> assert false  (* should have hit the case above *)
+    | Compilation_unit comp_unit ->
+      let symbol = Symbol.for_module_block comp_unit in
+      t.imported_symbols <- Symbol.Set.add symbol t.imported_symbols;
+      name_expr (Symbol symbol) ~name:Names.pgetglobal
+    end
   | Lprim (lambda_p, args, loc) ->
     (* One of the important consequences of the ANF-like representation
        here is that we obtain names corresponding to the components of
@@ -678,24 +678,24 @@ and close_let_bound_expression t ?let_rec_ident let_bound_var env
         ~var:let_bound_var))
   | lam -> Expr (close t env lam)
 
-let lambda_to_flambda ~backend ~module_ident ~size ~filename lam
+let lambda_to_flambda ~backend ~module_ident:_ ~size ~filename lam
       : Flambda.program =
   let lam = add_default_argument_wrappers lam in
-  let module Backend = (val backend : Backend_intf.S) in
-  let compilation_unit = Compilation_unit.get_current_exn () in
   let t =
-    { current_unit_id = Compilation_unit.get_persistent_ident compilation_unit;
-      symbol_for_global' = Backend.symbol_for_global';
-      filename;
+    { filename;
       backend;
       imported_symbols = Symbol.Set.empty;
       declared_symbols = [];
     }
   in
-  let module_symbol = Backend.symbol_for_global' module_ident in
+  (* CR mshinwell: Check that the current [Compilation_unit] matches
+     [module_ident].  Maybe we can remove [module_ident]? *)
+  let module_symbol =
+    Symbol.for_module_block (Persistent_env.Current_unit.get_exn ())
+  in
   let block_symbol =
     let var = Variable.create Internal_variable_names.module_as_block in
-    Symbol.of_variable var
+    Symbol.for_lifted_variable var
   in
   (* The global module block is built by accessing the fields of all the
      introduced symbols. *)

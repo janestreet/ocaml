@@ -112,14 +112,14 @@ let variable_and_symbol_invariants (program : Flambda.program) =
       Mutable_variable.Set.add mut_var !all_declared_mutable_variables
   in
   let add_binding_occurrence (var_env, mut_var_env, sym_env) var =
-    let compilation_unit = Compilation_unit.get_current_exn () in
+    let compilation_unit = Persistent_env.Current_unit.get_exn () in
     if not (Variable.in_compilation_unit var compilation_unit) then
       raise (Binding_occurrence_not_from_current_compilation_unit var);
     declare_variable var;
     Variable.Set.add var var_env, mut_var_env, sym_env
   in
   let add_mutable_binding_occurrence (var_env, mut_var_env, sym_env) mut_var =
-    let compilation_unit = Compilation_unit.get_current_exn () in
+    let compilation_unit = Persistent_env.Current_unit.get_exn () in
     if not (Mutable_variable.in_compilation_unit mut_var compilation_unit) then
       raise (Mutable_binding_occurrence_not_from_current_compilation_unit
         mut_var);
@@ -487,7 +487,7 @@ let no_var_within_closure_is_bound_multiple_times (flam:Flambda.program) =
   | _, None -> ()
 
 let every_declared_closure_is_from_current_compilation_unit flam =
-  let current_compilation_unit = Compilation_unit.get_current_exn () in
+  let current_compilation_unit = Persistent_env.Current_unit.get_exn () in
   Flambda_iterators.iter_on_sets_of_closures (fun
         { Flambda. function_decls; _ } ->
       let compilation_unit =
@@ -571,7 +571,7 @@ let used_vars_within_closures (flam:Flambda.program) =
 
 let every_used_function_from_current_compilation_unit_is_declared
       (program:Flambda.program) =
-  let current_compilation_unit = Compilation_unit.get_current_exn () in
+  let current_compilation_unit = Persistent_env.Current_unit.get_exn () in
   let declared, _ = declared_closure_ids program in
   let used = used_closure_ids program in
   let used_from_current_unit =
@@ -588,7 +588,7 @@ let every_used_function_from_current_compilation_unit_is_declared
 
 let every_used_var_within_closure_from_current_compilation_unit_is_declared
       (flam:Flambda.program) =
-  let current_compilation_unit = Compilation_unit.get_current_exn () in
+  let current_compilation_unit = Persistent_env.Current_unit.get_exn () in
   let declared, _ = declared_var_within_closure flam in
   let used = used_vars_within_closures flam in
   let used_from_current_unit =

@@ -81,7 +81,7 @@ module type Param = sig
 end
 
 (* CR-soon mshinwell: consider removing functor *)
-module Inconstants (P:Param) (Backend:Backend_intf.S) = struct
+module Inconstants (P:Param) = struct
   let program = P.program
   let compilation_unit = P.compilation_unit
   let imported_symbols = Flambda_utils.imported_symbols program
@@ -307,12 +307,12 @@ module Inconstants (P:Param) (Backend:Backend_intf.S) = struct
     | Const _ | Allocated_const _ -> ()
     | Read_mutable _ -> mark_curr curr
     | Symbol symbol -> begin
-        let current_unit = Compilation_unit.get_current_exn () in
-        if Compilation_unit.equal current_unit (Symbol.compilation_unit symbol)
+        let current_unit = Persistent_env.Current_unit.get_exn () in
+        if Symbol.in_compilation_unit symbol current_unit
         then
           ()
         else
-          match (Backend.import_symbol symbol).descr with
+          match (Import_approx.import_symbol symbol).descr with
           | Value_unresolved _ ->
             (* Constant when 'for_clambda' means: can be a symbol (which is
                obviously the case here) with a known approximation.  If this
@@ -479,14 +479,13 @@ module Inconstants (P:Param) (Backend:Backend_intf.S) = struct
     }
 end
 
-let inconstants_on_program ~compilation_unit ~backend
+let inconstants_on_program ~compilation_unit
     (program : Flambda.program) =
   let module P = struct
     let program = program
     let compilation_unit = compilation_unit
   end in
-  let module Backend = (val backend : Backend_intf.S) in
-  let module I = Inconstants (P) (Backend) in
+  let module I = Inconstants (P) in
   I.res
 
 let variable var { id; _ } =

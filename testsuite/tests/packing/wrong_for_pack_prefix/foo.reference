@@ -1,0 +1,4 @@
+File "foo.ml", line 1:
+Error: ./baz_incorrect/baz.cmx contains the description for a unit with
+       a `-for-pack' prefix of [Another_pack];
+       but a `-for-pack' prefix of [Pack] was expected

@@ -19,16 +19,18 @@ open Misc
 open Config
 open Cmo_format
 
+module CU = Compilation_unit
+
 type error =
   | File_not_found of filepath
   | Not_an_object_file of filepath
   | Wrong_object_name of filepath
   | Symbol_error of filepath * Symtable.error
-  | Inconsistent_import of modname * filepath * filepath
+  | Inconsistent_import of CU.Name.t * filepath * filepath
   | Custom_runtime
   | File_exists of filepath
   | Cannot_open_dll of filepath
-  | Required_module_unavailable of modname
+  | Required_module_unavailable of CU.Name.t
   | Camlheader of string * filepath
 
 exception Error of error
@@ -160,31 +162,31 @@ let scan_file obj_name tolink =
 
 (* Consistency check between interfaces *)
 
-module Consistbl = Consistbl.Make (Misc.Stdlib.String)
+module Consistbl = Consistbl.Make (CU)
 
 let crc_interfaces = Consistbl.create ()
-let interfaces = ref ([] : string list)
-let implementations_defined = ref ([] : (string * string) list)
+let interfaces = ref ([] : CU.t list)
+let implementations_defined = ref ([] : (CU.Name.t * string) list)
 
 let check_consistency file_name cu =
   begin try
     List.iter
-      (fun (name, crco) ->
-        interfaces := name :: !interfaces;
+      (fun (unit, crco) ->
+        interfaces := unit :: !interfaces;
         match crco with
           None -> ()
         | Some crc ->
-            if name = cu.cu_name
-            then Consistbl.set crc_interfaces name crc file_name
-            else Consistbl.check crc_interfaces name crc file_name)
+            if CU.Name.equal (CU.name unit) cu.cu_name
+            then Consistbl.set crc_interfaces unit crc file_name
+            else Consistbl.check crc_interfaces unit crc file_name)
       cu.cu_imports
-  with Consistbl.Inconsistency(name, user, auth) ->
-    raise(Error(Inconsistent_import(name, user, auth)))
+  with Consistbl.Inconsistency(unit, user, auth) ->
+    raise(Error(Inconsistent_import(CU.name unit, user, auth)))
   end;
   begin try
     let source = List.assoc cu.cu_name !implementations_defined in
     Location.prerr_warning (Location.in_file file_name)
-      (Warnings.Multiple_definition(cu.cu_name,
+      (Warnings.Multiple_definition(CU.Name.to_string cu.cu_name,
                                     Location.show_filename file_name,
                                     Location.show_filename source))
   with Not_found -> ()
@@ -245,7 +247,7 @@ let link_archive output_fun currpos_fun file_name units_required =
   try
     List.iter
       (fun cu ->
-         let name = file_name ^ "(" ^ cu.cu_name ^ ")" in
+         let name = file_name ^ "(" ^ CU.Name.to_string cu.cu_name ^ ")" in
          try
            link_compunit output_fun currpos_fun inchan name cu
          with Symtable.Error msg ->
@@ -604,7 +606,9 @@ let link objfiles output_name =
   begin
     match Ident.Set.elements missing_modules with
     | [] -> ()
-    | id :: _ -> raise (Error (Required_module_unavailable (Ident.name id)))
+    | id :: _ ->
+        raise (Error (Required_module_unavailable
+                        (CU.Name.of_string (Ident.name id))))
   end;
   Clflags.ccobjs := !Clflags.ccobjs @ !lib_ccobjs; (* put user's libs last *)
   Clflags.all_ccopts := !lib_ccopts @ !Clflags.all_ccopts;
@@ -724,10 +728,10 @@ let report_error ppf = function
   | Inconsistent_import(intf, file1, file2) ->
       fprintf ppf
         "@[<hov>Files %a@ and %a@ \
-                 make inconsistent assumptions over interface %s@]"
+                 make inconsistent assumptions over interface %a@]"
         Location.print_filename file1
         Location.print_filename file2
-        intf
+        CU.Name.print intf
   | Custom_runtime ->
       fprintf ppf "Error while building custom runtime system"
   | File_exists file ->
@@ -737,7 +741,7 @@ let report_error ppf = function
       fprintf ppf "Error on dynamically loaded library: %a"
         Location.print_filename file
   | Required_module_unavailable s ->
-      fprintf ppf "Required module `%s' is unavailable" s
+      fprintf ppf "Required module `%a' is unavailable" CU.Name.print s
   | Camlheader (msg, header) ->
       fprintf ppf "System error while copying file %s: %s" header msg
 

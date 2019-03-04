@@ -22,7 +22,7 @@ type linear_item_info =
 
 type linear_unit_info =
   {
-    mutable unit_name : string;
+    mutable compilation_unit : Backend_compilation_unit.t;
     mutable items : linear_item_info list;
   }
 

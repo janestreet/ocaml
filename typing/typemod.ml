@@ -101,6 +101,7 @@ type error =
   | Badly_formed_signature of string * Typedecl.error
   | Cannot_hide_id of hiding_error
   | Invalid_type_subst_rhs
+  | Interface_flagged_as_parameter of filepath * string
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -874,6 +875,9 @@ module Signature_names : sig
     ?info:info -> t -> Location.t -> Types.signature_item -> unit
 
   val simplify: Env.t -> t -> Types.signature -> Types.signature
+
+  val simplify_implementation:
+    Env.t -> t -> Types.compilation_unit -> Types.compilation_unit
 end = struct
 
   type bound_info = [
@@ -1076,6 +1080,13 @@ end = struct
       end
     in
     List.fold_right aux sg []
+
+  let simplify_implementation env t uty =
+    match uty with
+      Unit_signature sg -> Unit_signature (simplify env t sg)
+    | Unit_functor (args, body) ->
+        let simple_body = simplify env t body in
+        Unit_functor (args, simple_body)
 end
 
 let has_remove_aliases_attribute attr =
@@ -1642,6 +1653,12 @@ let check_nongen_scheme env sig_item =
 
 let check_nongen_schemes env sg =
   List.iter (check_nongen_scheme env) sg
+
+let check_nongen_schemes_compunit env uty =
+  match uty with
+    Unit_signature sg | Unit_functor (_, sg) ->
+      (* arguments are compilation units too, they have already been checked *)
+      check_nongen_schemes env sg
 
 (* Helpers for typing recursive modules *)
 
@@ -2440,6 +2457,7 @@ let type_toplevel_phrase env s =
 
 let type_module_alias = type_module ~alias:true true false None
 let type_module = type_module true false None
+let type_implementation_structure functor_unit = type_structure functor_unit None
 let type_structure = type_structure false None
 
 (* Normalize types in a signature *)
@@ -2456,6 +2474,10 @@ and normalize_signature_item env = function
     Sig_value(_id, desc, _) -> Ctype.normalize_type env desc.val_type
   | Sig_module(_id, _, md, _, _) -> normalize_modtype env md.md_type
   | _ -> ()
+
+let normalize_compunit env = function
+    Unit_signature sg -> normalize_signature env sg
+  | Unit_functor (_, body) -> normalize_signature env body
 
 (* Extract the module type of a module expression *)
 
@@ -2603,6 +2625,44 @@ let () =
 
 (* Typecheck an implementation file *)
 
+let type_implementation_aux env ast loc = function
+    [] ->
+      let str, sg, names, finalenv =
+        type_implementation_structure false env ast loc in
+      { timpl_desc = Timpl_structure str;
+        timpl_type = Unit_signature sg;
+        timpl_env = env },
+      names,
+      finalenv
+  | params ->
+      let args, newenv, _ =
+        List.fold_left (fun (args, env, subst) param ->
+          let id_arg_pers = Ident.create_persistent param in
+          let mty_arg =
+            Env.read_as_parameter loc (Compilation_unit.Name.of_string param) in
+          let scope = Ctype.create_scope () in
+          let mty_arg' = Subst.modtype Make_local subst mty_arg in
+          let mty_arg' = Mtype.scrape_for_functor_arg env mty_arg' in
+          let id_arg, newenv =
+            Env.enter_module ~scope ~arg:true param Mp_present mty_arg' env in
+          (id_arg, mty_arg') :: args,
+          newenv,
+          Subst.add_module
+            (id_arg_pers)
+            (Path.Pident id_arg)
+            subst)
+          ([], env, Subst.identity) params
+      in
+      let args = List.rev args in
+      let body, sg, names, finalenv =
+        type_implementation_structure true newenv ast loc in
+      { timpl_desc = Timpl_functor (args, body);
+        timpl_type = Unit_functor (args, sg);
+        timpl_env = env;
+      },
+      names,
+      finalenv
+
 let type_implementation sourcefile outputprefix modulename initial_env ast =
   Cmt_format.clear ();
   Misc.try_finally (fun () ->
@@ -2610,45 +2670,63 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
       Env.reset_required_globals ();
       if !Clflags.print_types then (* #7656 *)
         Warnings.parse_options false "-32-34-37-38-60";
-      let (str, sg, names, finalenv) =
-        type_structure initial_env ast (Location.in_file sourcefile) in
-      let simple_sg = Signature_names.simplify finalenv names sg in
+      let (timpl, names, finalenv) =
+        type_implementation_aux initial_env ast
+          (Location.in_file sourcefile)
+          (List.rev !Clflags.functor_parameters) in
+      (* TODO: generate a functor if there are any parameter *)
+      let uty = timpl.timpl_type in
+      let simple_uty =
+        Signature_names.simplify_implementation finalenv names uty in
       if !Clflags.print_types then begin
         Typecore.force_delayed_checks ();
         Printtyp.wrap_printing_env ~error:false initial_env
           (fun () -> fprintf std_formatter "%a@."
-              (Printtyp.printed_signature sourcefile) simple_sg
+              (Printtyp.printed_interface sourcefile) simple_uty
           );
-        (str, Tcoerce_none)   (* result is ignored by Compile.implementation *)
+        timpl,
+        Tcoerce_none   (* result is ignored by Compile.implementation *)
       end else begin
         let sourceintf =
           Filename.remove_extension sourcefile ^ !Config.interface_suffix in
         if Sys.file_exists sourceintf then begin
           let intf_file =
             try
-              Load_path.find_uncap (modulename ^ ".cmi")
+              Load_path.find_uncap
+                (Compilation_unit.Name.to_string modulename ^ ".cmi")
             with Not_found ->
               raise(Error(Location.in_file sourcefile, Env.empty,
                           Interface_not_compiled sourceintf)) in
-          let dclsig = Env.read_signature modulename intf_file in
+          let dcluty = Env.read_interface modulename intf_file in
+          if Env.is_imported_as_parameter modulename
+          || !Clflags.functor_parameter_of <> None then
+            raise (Error (Location.in_file sourcefile, initial_env,
+                          Interface_flagged_as_parameter
+                            (intf_file, "It cannot be implemented.")));
           let coercion =
-            Includemod.compunit initial_env ~mark:Mark_positive
-              sourcefile sg intf_file dclsig
+            Includemod.implementation initial_env ~mark:Mark_positive
+              sourcefile uty intf_file dcluty
           in
           Typecore.force_delayed_checks ();
           (* It is important to run these checks after the inclusion test above,
              so that value declarations which are not used internally but
              exported are not reported as being unused. *)
           Cmt_format.save_cmt (outputprefix ^ ".cmt") modulename
-            (Cmt_format.Implementation str) (Some sourcefile) initial_env None;
-          (str, coercion)
+            (Cmt_format.Implementation timpl) (Some sourcefile) initial_env None;
+
+          timpl,
+          coercion
         end else begin
+          if !Clflags.functor_parameter_of <> None then
+            raise (Error (Location.in_file sourcefile, initial_env,
+                          Interface_flagged_as_parameter
+                            (sourcefile, "It cannot be implemented.")));
           let coercion =
-            Includemod.compunit initial_env ~mark:Mark_positive
-              sourcefile sg "(inferred signature)" simple_sg
+            Includemod.implementation initial_env ~mark:Mark_positive
+              sourcefile uty "(inferred signature)" simple_uty
           in
-          check_nongen_schemes finalenv simple_sg;
-          normalize_signature finalenv simple_sg;
+          check_nongen_schemes_compunit finalenv simple_uty;
+          normalize_compunit finalenv simple_uty;
           Typecore.force_delayed_checks ();
           (* See comment above. Here the target signature contains all
              the value being exported. We can still capture unused
@@ -2657,14 +2735,15 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
           if not !Clflags.dont_write_files then begin
             let alerts = Builtin_attributes.alerts_of_str ast in
             let cmi =
-              Env.save_signature ~alerts
-                simple_sg modulename (outputprefix ^ ".cmi")
+              Env.save_interface ~alerts
+                simple_uty modulename (outputprefix ^ ".cmi")
             in
             Cmt_format.save_cmt  (outputprefix ^ ".cmt") modulename
-              (Cmt_format.Implementation str)
+              (Cmt_format.Implementation timpl)
               (Some sourcefile) initial_env (Some cmi);
           end;
-          (str, coercion)
+          timpl,
+          coercion
         end
       end
     )
@@ -2674,23 +2753,65 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
              (Array.of_list (Cmt_format.get_saved_types ())))
           (Some sourcefile) initial_env None)
 
-let save_signature modname tsg outputprefix source_file initial_env cmi =
+let save_interface modname tintf outputprefix source_file initial_env cmi =
   Cmt_format.save_cmt  (outputprefix ^ ".cmti") modname
-    (Cmt_format.Interface tsg) (Some source_file) initial_env (Some cmi)
+    (Cmt_format.Interface tintf)
+    (Some source_file) initial_env (Some cmi)
 
-let type_interface env ast =
-  transl_signature env ast
+let transl_interface env ast params =
+  let loc = Location.none in
+  match params with
+    [] ->
+      let sg = transl_signature env ast in
+      { tintf_desc = Tintf_signature sg;
+        tintf_type = Unit_signature sg.sig_type;
+        tintf_env = env;
+      }
+  | _ ->
+      let args, newenv, _ =
+        List.fold_left (fun (args, env, subst) param ->
+          let id_arg_pers = Ident.create_persistent param in
+          let mty_arg =
+            Env.read_as_parameter loc (Compilation_unit.Name.of_string param) in
+          let scope = Ctype.create_scope () in
+          let mty_arg = Subst.modtype Make_local subst mty_arg in
+          let mty_arg' = Mtype.scrape_for_functor_arg env mty_arg in
+          let id_arg, newenv =
+            Env.enter_module ~scope ~arg:true param Mp_present mty_arg' env in
+          (id_arg, mty_arg) :: args,
+          newenv,
+          Subst.add_module_path
+            (Path.Pident id_arg_pers)
+            (Path.Pident id_arg)
+            subst)
+          ([], env, Subst.identity) params
+      in
+      let body = transl_signature newenv ast in
+      let args = List.rev args in
+      { tintf_desc = Tintf_functor (args, body);
+        tintf_type = Unit_functor (args, body.sig_type);
+        tintf_env = newenv;
+      }
+
+let type_interface sourcefile env ast =
+  if !Clflags.functor_parameter_of <> None &&
+     !Clflags.for_package <> None then
+    raise (Error (Location.in_file sourcefile, env,
+                  Interface_flagged_as_parameter
+                    (sourcefile, "It cannot be packed into a module.")));
+  transl_interface env ast !Clflags.functor_parameters
 
 (* "Packaging" of several compilation units into one unit
    having them as sub-modules.  *)
 
-let package_signatures units =
+let package_module_types env parameters units =
   let units_with_ids =
     List.map
-      (fun (name, sg) ->
+      (fun (cu_name, uty) ->
+        let name = Compilation_unit.Name.to_string cu_name in
         let oldid = Ident.create_persistent name in
         let newid = Ident.create_local name in
-        (oldid, newid, sg))
+        (oldid, newid, Types.module_type_of_compilation_unit uty))
       units
   in
   let subst =
@@ -2699,18 +2820,45 @@ let package_signatures units =
         Subst.add_module oldid (Pident newid) acc)
       Subst.identity units_with_ids
   in
-  List.map
-    (fun (_, newid, sg) ->
-      (* This signature won't be used for anything, it'll just be saved in a cmi
-         and cmt. *)
-      let sg = Subst.signature Make_local subst sg in
-      let md =
-        { md_type=Mty_signature sg;
-          md_attributes=[];
-          md_loc=Location.none; }
+  let sg =
+    List.map
+      (fun (_, newid, mty) ->
+         (* This signature won't be used for anything, it'll just be saved in a cmi
+            and cmt. *)
+         let mty = Subst.modtype Make_local subst mty in
+         let md =
+           { md_type=mty;
+             md_attributes=[];
+             md_loc=Location.none; }
+         in
+         Sig_module(newid, Mp_present, md, Trec_not, Exported))
+      units_with_ids
+  in
+  let loc = Location.none in
+  match parameters with
+    [] -> Unit_signature sg
+  | params ->
+      let args, _, subst =
+        List.fold_left (fun (args, env, subst) param ->
+          let id_arg_pers = Ident.create_persistent param in
+          let mty_arg =
+            Env.read_as_parameter loc (Compilation_unit.Name.of_string param) in
+          let scope = Ctype.create_scope () in
+          let mty_arg = Subst.modtype Make_local subst mty_arg in
+          let mty_arg = Mtype.scrape_for_functor_arg env mty_arg in
+          let id_arg, newenv =
+            Env.enter_module ~scope ~arg:true param Mp_present mty_arg env in
+          (id_arg, mty_arg) :: args,
+          newenv,
+          Subst.add_module_path
+            (Path.Pident id_arg_pers)
+            (Path.Pident id_arg)
+            subst)
+          ([], env, Subst.identity) params
       in
-      Sig_module(newid, Mp_present, md, Trec_not, Exported))
-    units_with_ids
+      let args = List.rev args in
+      let sg' = Subst.signature Make_local subst sg in
+      Unit_functor (args, sg')
 
 let package_units initial_env objfiles cmifile modulename =
   (* Read the signatures of the units *)
@@ -2719,45 +2867,64 @@ let package_units initial_env objfiles cmifile modulename =
       (fun f ->
          let pref = chop_extensions f in
          let modname = String.capitalize_ascii(Filename.basename pref) in
-         let sg = Env.read_signature modname (pref ^ ".cmi") in
+         let cu_modname = Compilation_unit.Name.of_string modname in
+         let uty = Env.read_interface cu_modname (pref ^ ".cmi") in
          if Filename.check_suffix f ".cmi" &&
-            not(Mtype.no_code_needed_sig Env.initial_safe_string sg)
+            not(Mtype.no_code_needed_unit Env.initial_safe_string uty)
          then raise(Error(Location.none, Env.empty,
                           Implementation_is_required f));
-         (modname, Env.read_signature modname (pref ^ ".cmi")))
+         (cu_modname, uty))
       objfiles in
   (* Compute signature of packaged unit *)
   Ident.reinit();
-  let sg = package_signatures units in
+  let uty = package_module_types
+      initial_env
+      (List.rev !Clflags.functor_parameters)
+      units in
   (* See if explicit interface is provided *)
   let prefix = Filename.remove_extension cmifile in
   let mlifile = prefix ^ !Config.interface_suffix in
+  (* temporary, until cmts are updated to reflect the functor *)
+  let sg = match uty with
+      Unit_signature sg -> sg
+    | Unit_functor (_, sg) -> sg
+  in
   if Sys.file_exists mlifile then begin
     if not (Sys.file_exists cmifile) then begin
       raise(Error(Location.in_file mlifile, Env.empty,
                   Interface_not_compiled mlifile))
     end;
-    let dclsig = Env.read_signature modulename cmifile in
+    let dcluty = Env.read_interface modulename cmifile in
     Cmt_format.save_cmt  (prefix ^ ".cmt") modulename
       (Cmt_format.Packed (sg, objfiles)) None initial_env  None ;
-    Includemod.compunit initial_env ~mark:Mark_both
-      "(obtained by packing)" sg mlifile dclsig
+    Includemod.implementation initial_env ~mark:Mark_both
+      "(obtained by packing)" uty mlifile dcluty
   end else begin
     (* Determine imports *)
     let unit_names = List.map fst units in
+    let params =
+      List.map Compilation_unit.Name.of_string !Clflags.functor_parameters in
     let imports =
       List.filter
-        (fun (name, _crc) -> not (List.mem name unit_names))
+        (fun (unit, _crc) ->
+           not (List.exists Compilation_unit.(Name.equal (name unit))
+                  unit_names) &&
+           not (List.exists Compilation_unit.(Name.equal (name unit)) params))
         (Env.imports()) in
     (* Write packaged signature *)
     if not !Clflags.dont_write_files then begin
       let cmi =
-        Env.save_signature_with_imports ~alerts:Misc.Stdlib.String.Map.empty
-          sg modulename
+        Env.save_interface_with_imports ~alerts:Misc.Stdlib.String.Map.empty
+          uty modulename
           (prefix ^ ".cmi") imports
       in
+      let cmi_sg =
+        match cmi.Cmi_format.cmi_type with
+          Unit_signature sg -> sg
+        | Unit_functor (_, sg) -> sg
+      in
       Cmt_format.save_cmt (prefix ^ ".cmt")  modulename
-        (Cmt_format.Packed (cmi.Cmi_format.cmi_sign, objfiles)) None initial_env
+        (Cmt_format.Packed (cmi_sg, objfiles)) None initial_env
         (Some cmi)
     end;
     Tcoerce_none
@@ -2894,6 +3061,12 @@ let report_error ppf = function
         Ident.print opened_item_id
   | Invalid_type_subst_rhs ->
       fprintf ppf "Only type synonyms are allowed on the right of :="
+  | Interface_flagged_as_parameter (path, reason) ->
+      fprintf ppf
+        "@[Interface %s@ found for this unit is flagged as a functor parameter.@ \
+         %s@]"
+        path
+        reason
 
 let report_error env ppf err =
   Printtyp.wrap_printing_env ~error:true env (fun () -> report_error ppf err)

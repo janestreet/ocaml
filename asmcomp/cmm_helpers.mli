@@ -161,7 +161,7 @@ val mk_compare_ints : Debuginfo.t -> expression -> expression -> expression
 val create_loop : expression -> Debuginfo.t -> expression
 
 (** Exception raising *)
-val raise_symbol : Debuginfo.t -> string -> expression
+val raise_symbol : Debuginfo.t -> Backend_sym.t -> expression
 
 (** Convert a tagged integer into a raw integer with boolean meaning *)
 val test_bool : Debuginfo.t -> expression -> expression
@@ -316,12 +316,12 @@ val check_bound :
 
 (** Get the symbol for the generic application with [n] arguments, and
     ensure its presence in the set of defined symbols *)
-val apply_function_sym : int -> string
+val apply_function_sym : int -> Backend_sym.t
 
 (** If [n] is positive, get the symbol for the generic currying wrapper with
     [n] arguments, and ensure its presence in the set of defined symbols.
     Otherwise, do the same for the generic tuple wrapper with [-n] arguments. *)
-val curry_function_sym : int -> string
+val curry_function_sym : int -> Backend_sym.t
 
 (** Bigarrays *)
 
@@ -355,13 +355,6 @@ val sign_extend_32 : Debuginfo.t -> expression -> expression
 
 (** Zero extend from 32 bits to the word size *)
 val zero_extend_32 : Debuginfo.t -> expression -> expression
-
-(** Boxed numbers *)
-
-(** Global symbols for the ops field of boxed integers *)
-val caml_nativeint_ops : string
-val caml_int32_ops : string
-val caml_int64_ops : string
 
 (** Box a given integer, without sharing of constants *)
 val box_int_gen :
@@ -547,7 +540,7 @@ val strmatch_compile :
 val ptr_offset : expression -> int -> Debuginfo.t -> expression
 
 (** Direct application of a function via a symbol *)
-val direct_apply : string -> expression list -> Debuginfo.t -> expression
+val direct_apply : Symbol.t -> expression list -> Debuginfo.t -> expression
 
 (** Generic application of a function to one or several arguments.
     The mutable_flag argument annotates the loading of the code pointer
@@ -571,80 +564,85 @@ val send :
 
 (** Generic Cmm fragments *)
 
+val apply_function: int -> phrase
+val send_function: int -> phrase
+val curry_function: int -> phrase list
+
 (** Generate generic functions *)
-val generic_functions : bool -> Cmx_format.unit_infos list -> Cmm.phrase list
+val generic_functions : bool -> Cmx_format.Unit_info_link_time.t -> Cmm.phrase list
 
 val placeholder_dbg : unit -> Debuginfo.t
 val placeholder_fun_dbg : human_name:string -> Debuginfo.t
 
 (** Entry point *)
-val entry_point : string list -> phrase
+val entry_point : Backend_compilation_unit.t list -> phrase
 
 (** Generate the caml_globals table *)
-val global_table: string list -> phrase
+val global_table: Backend_compilation_unit.t list -> phrase
 
 (** Add references to the given symbols *)
-val reference_symbols: string list -> phrase
+val reference_symbols: Backend_sym.Set.t -> phrase
 
 (** Generate the caml_globals_map structure, as a marshalled string constant *)
 val globals_map:
-  (string * Digest.t option * Digest.t option * string list) list -> phrase
+  (Compilation_unit.Name.t * Digest.t option * Digest.t option
+   * Compilation_unit.t list) list -> phrase
 
 (** Generate the caml_frametable table, referencing the frametables
     from the given compilation units *)
-val frame_table: string list -> phrase
+val frame_table: Backend_compilation_unit.t list -> phrase
 
 (** Generate the caml_spacetime_shapes table, referencing the spacetime shapes
     from the given compilation units *)
-val spacetime_shapes: string list -> phrase
+val spacetime_shapes: Backend_compilation_unit.t list -> phrase
 
 (** Generate the tables for data and code positions respectively of the given
     compilation units *)
-val data_segment_table: string list -> phrase
-val code_segment_table: string list -> phrase
+val data_segment_table: Backend_compilation_unit.t list -> phrase
+val code_segment_table: Backend_compilation_unit.t list -> phrase
 
 (** Generate data for a predefined exception *)
 val predef_exception: int -> string -> phrase
 
-val plugin_header: (Cmx_format.unit_infos * Digest.t) list -> phrase
+val plugin_header: (Cmx_format.Unit_info.t * Digest.t) list -> phrase
 
 (** Emit constant symbols *)
 
 (** Produce the data_item list corresponding to a symbol definition *)
-val cdefine_symbol : (string * Cmmgen_state.is_global) -> data_item list
+val cdefine_symbol : (Backend_sym.t * Cmmgen_state.is_global) -> data_item list
 
 (** [emit_block symb white_header cont] prepends to [cont] the header and symbol
     for the block.
     [cont] must already contain the fields of the block (and may contain
     additional data items afterwards). *)
 val emit_block :
-  (string * Cmmgen_state.is_global) -> nativeint -> data_item list ->
+  (Backend_sym.t * Cmmgen_state.is_global) -> nativeint -> data_item list ->
   data_item list
 
 (** Emit specific kinds of constant blocks as data items *)
 val emit_float_constant :
-  (string * Cmmgen_state.is_global) -> float -> data_item list ->
+  (Backend_sym.t * Cmmgen_state.is_global) -> float -> data_item list ->
   data_item list
 val emit_string_constant :
-  (string * Cmmgen_state.is_global) -> string -> data_item list ->
+  (Backend_sym.t * Cmmgen_state.is_global) -> string -> data_item list ->
   data_item list
 val emit_int32_constant :
-  (string * Cmmgen_state.is_global) -> int32 -> data_item list ->
+  (Backend_sym.t * Cmmgen_state.is_global) -> int32 -> data_item list ->
   data_item list
 val emit_int64_constant :
-  (string * Cmmgen_state.is_global) -> int64 -> data_item list ->
+  (Backend_sym.t * Cmmgen_state.is_global) -> int64 -> data_item list ->
   data_item list
 val emit_nativeint_constant :
-  (string * Cmmgen_state.is_global) -> nativeint -> data_item list ->
+  (Backend_sym.t * Cmmgen_state.is_global) -> nativeint -> data_item list ->
   data_item list
 val emit_float_array_constant :
-  (string * Cmmgen_state.is_global) -> float list -> data_item list ->
+  (Backend_sym.t * Cmmgen_state.is_global) -> float list -> data_item list ->
   data_item list
 
 val fundecls_size : Clambda.ufunction list -> int
 
 val emit_constant_closure :
-  (string * Cmmgen_state.is_global) -> Clambda.ufunction list ->
+  (Backend_sym.t * Cmmgen_state.is_global) -> Clambda.ufunction list ->
   data_item list -> data_item list -> data_item list
 
 val emit_preallocated_blocks :

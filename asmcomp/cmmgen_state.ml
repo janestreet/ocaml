@@ -17,7 +17,8 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-module S = Misc.Stdlib.String
+module S = Backend_sym
+module SymTbl = Hashtbl.Make(Backend_sym)
 
 type is_global = Global | Local
 
@@ -25,10 +26,11 @@ type constant =
   | Const_closure of is_global * Clambda.ufunction list * Clambda.uconstant list
   | Const_table of is_global * Cmm.data_item list
 
+
 type t = {
   mutable constants : constant S.Map.t;
   mutable data_items : Cmm.data_item list list;
-  structured_constants : (string,  Clambda.ustructured_constant) Hashtbl.t;
+  structured_constants : Clambda.ustructured_constant SymTbl.t;
   functions : Clambda.ufunction Queue.t;
 }
 
@@ -36,7 +38,7 @@ let empty = {
   constants = S.Map.empty;
   data_items = [];
   functions = Queue.create ();
-  structured_constants = Hashtbl.create 16;
+  structured_constants = SymTbl.create 16;
 }
 
 let state = empty
@@ -69,17 +71,18 @@ let no_more_functions () =
   Queue.is_empty state.functions
 
 let set_structured_constants l =
-  Hashtbl.clear state.structured_constants;
+  SymTbl.clear state.structured_constants;
   List.iter
     (fun (c : Clambda.preallocated_constant) ->
-       Hashtbl.add state.structured_constants c.symbol c.definition
+       SymTbl.add state.structured_constants
+         (Backend_sym.of_symbol c.symbol) c.definition
     )
     l
 
 let get_structured_constant s =
-  Hashtbl.find_opt state.structured_constants s
+  SymTbl.find_opt state.structured_constants s
 
 let structured_constant_of_sym s =
-  match Compilenv.structured_constant_of_symbol s with
+  match None (* Compilation_state.Closure_only.structured_constant_of_symbol s *) with
   | None -> get_structured_constant s
   | Some _ as r -> r

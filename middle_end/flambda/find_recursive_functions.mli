@@ -31,7 +31,4 @@
     function declarations.
     This is only intended to be used by [Flambda.create_function_declarations].
 *)
-val in_function_declarations
-   : Flambda.function_declarations
-  -> backend:(module Backend_intf.S)
-  -> Variable.Set.t
+val in_function_declarations : Flambda.function_declarations -> Variable.Set.t

@@ -235,9 +235,9 @@ constructed with "-pack".  For instance,
 {\machine\ocamlx\ -for-pack\ P\ -c\ A.ml}
 will generate {\machine a.\cmo}\nat{ and "a.o" files} that can
 later be used with {\machine \ocamlx\ -pack\ -o\ P\cmo\ a\cmo}.
-Note: you can still pack a module that was compiled without
-"-for-pack" but in this case exceptions will be printed with the wrong
-names.
+Note: for bytecode compilation, you can still pack a module that was
+compiled without "-for-pack", but in this case exceptions will be printed
+with the wrong names.
 }%notop
 
 \notop{%

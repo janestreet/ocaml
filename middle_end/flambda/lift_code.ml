@@ -167,7 +167,7 @@ let lifting_helper exprs ~evaluation_order ~create_body ~name =
         | expr ->
           let v =
             Variable.create name ~current_compilation_unit:
-                (Compilation_unit.get_current_exn ())
+                (Persistent_env.Current_unit.get_exn ())
           in
           v::vars, (v, expr)::lets)
       exprs ([], [])

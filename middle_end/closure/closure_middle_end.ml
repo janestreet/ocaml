@@ -22,8 +22,8 @@ let raw_clambda_dump_if ppf
       Format.fprintf ppf "@.clambda:@.";
       Printclambda.clambda ppf ulambda;
       List.iter (fun { Clambda. symbol; definition; _ } ->
-          Format.fprintf ppf "%s:@ %a@."
-            symbol
+          Format.fprintf ppf "%a:@ %a@."
+            Symbol.print symbol
             Printclambda.structured_constant definition)
         structured_constants
     end;
@@ -34,23 +34,23 @@ let lambda_to_clambda ~backend ~filename:_ ~prefixname:_ ~ppf_dump
   let clambda =
     Closure.intro ~backend ~size:lambda.main_module_block_size lambda.code
   in
+  let current_unit = Persistent_env.Current_unit.get_exn () in
   let provenance : Clambda.usymbol_provenance =
     { original_idents = [];
-      module_path =
-        Path.Pident (Ident.create_persistent (Compilenv.current_unit_name ()));
+      module_path = Path.of_compilation_unit current_unit;
     }
   in
   let preallocated_block =
     Clambda.{
-      symbol = Compilenv.make_symbol None;
+      symbol = Symbol.for_module_block current_unit;
       exported = true;
       tag = 0;
       fields = List.init lambda.main_module_block_size (fun _ -> None);
       provenance = Some provenance;
     }
   in
-  let constants = Compilenv.structured_constants () in
-  Compilenv.clear_structured_constants ();
+  let constants = Compilation_state.Closure_only.structured_constants () in
+  Compilation_state.Closure_only.clear_structured_constants ();
   let clambda_and_constants =
     clambda, [preallocated_block], constants
   in

@@ -17,7 +17,6 @@
 
 open Misc
 open Config
-open Cmx_format
 
 type error =
     File_not_found of string
@@ -25,49 +24,52 @@ type error =
 
 exception Error of error
 
-let default_ui_export_info =
+let empty_export_info =
   if Config.flambda then
-    Cmx_format.Flambda Export_info.empty
+    Cmx_format.Unit_info.Flambda Export_info.empty
   else
-    Cmx_format.Clambda Clambda.Value_unknown
+    Cmx_format.Unit_info.Closure Clambda.Value_unknown
 
 let read_info name =
+  let module UI = Cmx_format.Unit_info in
+  let module UIL = Cmx_format.Unit_info_link_time in
   let filename =
     try
       Load_path.find name
     with Not_found ->
       raise(Error(File_not_found name)) in
-  let (info, crc) = Compilenv.read_unit_info filename in
-  info.ui_force_link <- info.ui_force_link || !Clflags.link_everything;
+  let info, link_info, crc = Cmx_format.load ~filename in
+  let link_info =
+    UIL.with_force_link link_info
+      ~force_link:(UIL.force_link link_info || !Clflags.link_everything)
+  in
   (* There is no need to keep the approximation in the .cmxa file,
      since the compiler will go looking directly for .cmx files.
      The linker, which is the only one that reads .cmxa files, does not
      need the approximation. *)
-  info.ui_export_info <- default_ui_export_info;
-  (Filename.chop_suffix filename ".cmx" ^ ext_obj, (info, crc))
+  let info = UI.with_export_info info empty_export_info in
+  (Filename.chop_suffix filename ".cmx" ^ ext_obj, (info, link_info, crc))
 
 let create_archive file_list lib_name =
   let archive_name = Filename.remove_extension lib_name ^ ext_lib in
-  let outchan = open_out_bin lib_name in
+  let (objfile_list, descr_list) =
+     List.split (List.map read_info file_list) in
+  List.iter2
+    (fun file_name (info, _link_info, crc) ->
+      Asmlink.check_consistency file_name info crc)
+    file_list descr_list;
+  let infos =
+    Cmxa_format.Library_info.create ~units:descr_list
+      ~ccobjs:!Clflags.ccobjs
+      ~ccopts:!Clflags.all_ccopts
+  in
   Misc.try_finally
-    ~always:(fun () -> close_out outchan)
-    ~exceptionally:(fun () -> remove_file lib_name; remove_file archive_name)
+    ~exceptionally:(fun () -> remove_file archive_name)
     (fun () ->
-       output_string outchan cmxa_magic_number;
-       let (objfile_list, descr_list) =
-         List.split (List.map read_info file_list) in
-       List.iter2
-         (fun file_name (unit, crc) ->
-            Asmlink.check_consistency file_name unit crc)
-         file_list descr_list;
-       let infos =
-         { lib_units = descr_list;
-           lib_ccobjs = !Clflags.ccobjs;
-           lib_ccopts = !Clflags.all_ccopts } in
-       output_value outchan infos;
-       if Ccomp.create_archive archive_name objfile_list <> 0
-       then raise(Error(Archiver_error archive_name));
-    )
+      Cmxa_format.save infos ~filename:lib_name;
+      if Ccomp.create_archive archive_name objfile_list <> 0 then begin
+        raise (Error (Archiver_error archive_name))
+      end)
 
 open Format
 

@@ -19,12 +19,6 @@ open Compenv
 module Backend = struct
   (* See backend_intf.mli. *)
 
-  let symbol_for_global' = Compilenv.symbol_for_global'
-  let closure_symbol = Compilenv.closure_symbol
-
-  let really_import_approx = Import_approx.really_import_approx
-  let import_symbol = Import_approx.import_symbol
-
   let size_int = Arch.size_int
   let big_endian = Arch.big_endian
 
@@ -37,6 +31,7 @@ let backend = (module Backend : Backend_intf.S)
 let usage = "Usage: ocamlopt <options> <files>\nOptions are:"
 
 module Options = Main_args.Make_optcomp_options (Main_args.Default.Optmain)
+
 let main () =
   native_code := true;
   let ppf = Format.err_formatter in

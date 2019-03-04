@@ -741,6 +741,10 @@ OCaml 4.09.0 (19 September 2019):
 - #2286: Functorise [Consistbl]
   (Mark Shinwell, review by Gabriel Radanne)
 
+- #2288: Move middle end code from [Asmgen] to [Clambda_middle_end] and
+  [Flambda_middle_end].  Run [Un_anf] from the middle end, not [Cmmgen].
+  (Mark Shinwell)
+
 - #2291: Add [Compute_ranges] pass
   (Mark Shinwell, review by Vincent Laviron)
 

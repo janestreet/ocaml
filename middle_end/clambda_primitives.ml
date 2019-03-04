@@ -31,7 +31,7 @@ type memory_access_size =
   | Sixty_four
 
 type primitive =
-  | Pread_symbol of string
+  | Pread_symbol of Symbol.t
   (* Operations on heap blocks *)
   | Pmakeblock of int * mutable_flag * block_shape
   | Pfield of int

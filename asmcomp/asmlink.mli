@@ -25,20 +25,19 @@ val link_shared: ppf_dump:formatter -> string list -> string -> unit
 val call_linker_shared: string list -> string -> unit
 
 val reset : unit -> unit
-val check_consistency: filepath -> Cmx_format.unit_infos -> Digest.t -> unit
-val extract_crc_interfaces: unit -> crcs
-val extract_crc_implementations: unit -> crcs
+val check_consistency: filepath -> Cmx_format.Unit_info.t -> Digest.t -> unit
+val extract_crc_interfaces: unit -> Digest.t option Compilation_unit.Map.t
+val extract_crc_implementations: unit -> Digest.t option Compilation_unit.Map.t
 
-type error =
+type error = private
   | File_not_found of filepath
   | Not_an_object_file of filepath
-  | Missing_implementations of (modname * string list) list
-  | Inconsistent_interface of modname * filepath * filepath
-  | Inconsistent_implementation of modname * filepath * filepath
-  | Assembler_error of filepath
+  | Missing_implementations of Misc.Stdlib.String.Set.t Compilation_unit.Map.t
+  | Inconsistent_interface of Compilation_unit.Name.t * filepath * filepath
+  | Inconsistent_implementation of Compilation_unit.Name.t * filepath * filepath
   | Linking_error
-  | Multiple_definition of modname * filepath * filepath
-  | Missing_cmx of filepath * modname
+  | Multiple_definition of Compilation_unit.Name.t * filepath * filepath
+  | Missing_cmx of filepath * Compilation_unit.Name.t
 
 exception Error of error
 

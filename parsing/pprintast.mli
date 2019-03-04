@@ -35,6 +35,9 @@ val signature: Format.formatter -> Parsetree.signature -> unit
 val structure: Format.formatter -> Parsetree.structure -> unit
 val string_of_structure: Parsetree.structure -> string
 
+val implementation: Format.formatter -> Parsetree.implementation -> unit
+val interface: Format.formatter -> Parsetree.interface -> unit
+
 val toplevel_phrase : Format.formatter -> Parsetree.toplevel_phrase -> unit
 val top_phrase: Format.formatter -> Parsetree.toplevel_phrase -> unit
 

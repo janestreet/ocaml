@@ -181,6 +181,6 @@ val print_items: (Env.t -> signature_item -> 'a option) ->
    for Foo__bar. This pattern is used by the stdlib. *)
 val rewrite_double_underscore_paths: Env.t -> Path.t -> Path.t
 
-(** [printed_signature sourcefile ppf sg] print the signature [sg] of
+(** [printed_interface sourcefile ppf tintf] print the interface [tintf] of
     [sourcefile] with potential warnings for name collisions *)
-val printed_signature: string -> formatter -> signature -> unit
+val printed_interface: string -> formatter -> compilation_unit -> unit

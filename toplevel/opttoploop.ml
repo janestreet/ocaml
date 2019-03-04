@@ -33,13 +33,23 @@ external ndl_run_toplevel: string -> string -> res
   = "caml_natdynlink_run_toplevel"
 
 let global_symbol id =
-  let sym = Compilenv.symbol_for_global id in
-  match Dynlink.unsafe_get_global_value ~bytecode_or_asm_symbol:sym with
+  let comp_unit = Compilation_state.compilation_unit_for_global id in
+  let sym =
+    match comp_unit with
+    | Compilation_state.Compilation_unit comp_unit ->
+      Symbol.for_module_block comp_unit
+    | Compilation_state.Predef ->
+      Symbol.for_predefined_exn id
+  in
+  let backend_sym = Backend_sym.of_symbol sym in
+  let bytecode_or_asm_symbol = Backend_sym.to_string backend_sym in
+  match Dynlink.unsafe_get_global_value ~bytecode_or_asm_symbol with
   | None ->
     fatal_error ("Opttoploop.global_symbol " ^ (Ident.unique_name id))
   | Some obj -> obj
 
 let need_symbol sym =
+  let sym = Backend_sym.to_string sym in
   Option.is_none (Dynlink.unsafe_get_global_value ~bytecode_or_asm_symbol:sym)
 
 let dll_run dll entry =
@@ -216,19 +226,13 @@ let run_hooks hook = List.iter (fun f -> f hook) !hooks
 (* Load in-core and execute a lambda term *)
 
 let phrase_seqid = ref 0
-let phrase_name = ref "TOP"
+let phrase_name = ref "TOP-0"
 
 (* CR-soon trefis for mshinwell: copy/pasted from Optmain. Should it be shared
    or?
    mshinwell: It should be shared, but after 4.03. *)
 module Backend = struct
   (* See backend_intf.mli. *)
-
-  let symbol_for_global' = Compilenv.symbol_for_global'
-  let closure_symbol = Compilenv.closure_symbol
-
-  let really_import_approx = Import_approx.really_import_approx
-  let import_symbol = Import_approx.import_symbol
 
   let size_int = Arch.size_int
   let big_endian = Arch.big_endian
@@ -314,8 +318,12 @@ let execute_phrase print_outcome ppf phr =
   | Ptop_def sstr ->
       let oldenv = !toplevel_env in
       incr phrase_seqid;
-      phrase_name := Printf.sprintf "TOP%i" !phrase_seqid;
-      Compilenv.reset ?packname:None !phrase_name;
+      phrase_name := Printf.sprintf "TOP-%i" !phrase_seqid;
+      let unit_name = Compilation_unit.Name.of_string !phrase_name in
+      let compilation_unit = Compilation_unit.create unit_name in
+      Persistent_env.Current_unit.set_unit compilation_unit;
+      Compilation_state.reset compilation_unit;
+      Linking_state.reset ();
       Typecore.reset_delayed_checks ();
       let sstr, rewritten =
         match sstr with
@@ -333,7 +341,12 @@ let execute_phrase print_outcome ppf phr =
         | _ -> sstr, false
       in
       let (str, sg, names, newenv) = Typemod.type_toplevel_phrase oldenv sstr in
-      if !Clflags.dump_typedtree then Printtyped.implementation ppf str;
+      let impl =
+        Typedtree.{ timpl_desc = Typedtree.Timpl_structure str;
+                    timpl_type = Types.Unit_signature sg;
+                    timpl_env = oldenv }
+      in
+      if !Clflags.dump_typedtree then Printtyped.implementation ppf impl;
       let sg' = Typemod.Signature_names.simplify newenv names sg in
       (* Why is this done? *)
       ignore (Includemod.signatures oldenv ~mark:Mark_positive sg sg');
@@ -342,13 +355,13 @@ let execute_phrase print_outcome ppf phr =
         if Config.flambda then
           let { Lambda.module_ident; main_module_block_size = size;
                 required_globals; code = res } =
-            Translmod.transl_implementation_flambda !phrase_name
-              (str, Tcoerce_none)
+            Translmod.transl_implementation_flambda unit_name
+              (impl, Tcoerce_none)
           in
           remember module_ident 0 sg';
           module_ident, close_phrase res, required_globals, size
         else
-          let size, res = Translmod.transl_store_phrases !phrase_name str in
+          let size, res = Translmod.transl_store_phrases unit_name str in
           Ident.create_persistent !phrase_name, res, Ident.Set.empty, size
       in
       Warnings.check_fatal ();
@@ -362,7 +375,7 @@ let execute_phrase print_outcome ppf phr =
                 (* CR-someday trefis: *)
                 ()
               else
-                Compilenv.record_global_approx_toplevel ();
+                Compilation_state.Closure_only.record_global_approx_toplevel ();
               if print_outcome then
                 Printtyp.wrap_printing_env ~error:false oldenv (fun () ->
                 match str.str_items with

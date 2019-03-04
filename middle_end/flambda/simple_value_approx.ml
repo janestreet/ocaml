@@ -221,7 +221,7 @@ let rec print_descr ppf = function
 
 and print ppf { descr; var; symbol; } =
   let print ppf = function
-    | None -> Symbol.print_opt ppf None
+    | None -> Misc.Stdlib.Option.print (fun _ _ -> ()) ppf None
     | Some (sym, None) -> Symbol.print ppf sym
     | Some (sym, Some field) ->
         Format.fprintf ppf "%a.(%i)" Symbol.print sym field
@@ -995,7 +995,7 @@ let import_function_declarations_for_pack function_decls
   }
 
 let update_function_declarations function_decls ~funs =
-  let compilation_unit = Compilation_unit.get_current_exn () in
+  let compilation_unit = Persistent_env.Current_unit.get_exn () in
   let is_classic_mode = function_decls.is_classic_mode in
   let set_of_closures_id = Set_of_closures_id.create compilation_unit in
   let set_of_closures_origin = function_decls.set_of_closures_origin in

@@ -172,6 +172,9 @@ module Stdlib : sig
     val print : Format.formatter -> t -> unit
 
     val for_all : (char -> bool) -> t -> bool
+
+    (** Returns [true] iff the given string starts with [prefix]. *)
+    val is_prefix : t -> prefix:t -> bool
   end
 
   external compare : 'a -> 'a -> int = "%compare"
@@ -456,11 +459,7 @@ val print_if :
   Format.formatter -> bool ref -> (Format.formatter -> 'a -> unit) -> 'a -> 'a
 (** [print_if ppf flag fmt x] prints [x] with [fmt] on [ppf] if [b] is true. *)
 
-
 type filepath = string
-type modname = string
-type crcs = (modname * Digest.t option) list
-
 type alerts = string Stdlib.String.Map.t
 
 

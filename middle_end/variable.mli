@@ -43,6 +43,8 @@ val in_compilation_unit : t -> Compilation_unit.t -> bool
 
 val name : t -> string
 
+val stamp : t -> int
+
 val unique_name : t -> string
 
 val get_compilation_unit : t -> Compilation_unit.t

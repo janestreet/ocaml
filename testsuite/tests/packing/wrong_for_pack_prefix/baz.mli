@@ -1,0 +1,1 @@
+val func : unit -> unit

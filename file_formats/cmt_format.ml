@@ -30,8 +30,8 @@ let read_magic_number ic =
 
 type binary_annots =
   | Packed of Types.signature * string list
-  | Implementation of structure
-  | Interface of signature
+  | Implementation of implementation
+  | Interface of interface
   | Partial_implementation of binary_part array
   | Partial_interface of binary_part array
 
@@ -46,7 +46,7 @@ and binary_part =
 | Partial_module_type of module_type
 
 type cmt_infos = {
-  cmt_modname : string;
+  cmt_modname : Compilation_unit.Name.t;
   cmt_annots : binary_annots;
   cmt_value_dependencies :
     (Types.value_description * Types.value_description) list;
@@ -57,7 +57,7 @@ type cmt_infos = {
   cmt_loadpath : string list;
   cmt_source_digest : Digest.t option;
   cmt_initial_env : Env.t;
-  cmt_imports : (string * Digest.t option) list;
+  cmt_imports : Compilation_unit.crcs;
   cmt_interface_digest : Digest.t option;
   cmt_use_summaries : bool;
 }
@@ -91,8 +91,8 @@ let clear_part = function
 let clear_env binary_annots =
   if need_to_clear_env then
     match binary_annots with
-    | Implementation s -> Implementation (cenv.structure cenv s)
-    | Interface s -> Interface (cenv.signature cenv s)
+    | Implementation s -> Implementation (cenv.implementation cenv s)
+    | Interface s -> Interface (cenv.interface cenv s)
     | Packed _ -> binary_annots
     | Partial_implementation array ->
         Partial_implementation (Array.map clear_part array)

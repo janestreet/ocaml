@@ -31,7 +31,7 @@ val print_with_scope : Format.formatter -> t -> unit
 
 val create_scoped: scope:int -> string -> t
 val create_local: string -> t
-val create_persistent: string -> t
+val create_persistent: ?prefix:Compilation_unit.Prefix.t -> string -> t
 val create_predef: string -> t
 
 val rename: t -> t

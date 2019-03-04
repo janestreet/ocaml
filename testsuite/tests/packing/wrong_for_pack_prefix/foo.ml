@@ -1,0 +1,1 @@
+let () = (fst Bar.pair) ()

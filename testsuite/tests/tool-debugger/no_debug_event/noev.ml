@@ -6,7 +6,7 @@ ocamldebug_script = "${test_source_directory}/input_script"
 *** setup-ocamlc.byte-build-env
 **** ocamlc.byte
 module = "a.ml"
-flags = "-g -for-pack foo"
+flags = "-g -for-pack Foo"
 ***** ocamlc.byte
 module = ""
 all_modules = "a.cmo"

@@ -271,6 +271,7 @@ loadprinter.cmo : \
     ../typing/env.cmi \
     ../otherlibs/dynlink/dynlink.cmi \
     ../typing/ctype.cmi \
+    ../utils/compilation_unit.cmi \
     loadprinter.cmi
 loadprinter.cmx : \
     ../typing/types.cmx \
@@ -286,6 +287,7 @@ loadprinter.cmx : \
     ../typing/env.cmx \
     ../otherlibs/dynlink/dynlink.cmi \
     ../typing/ctype.cmx \
+    ../utils/compilation_unit.cmx \
     loadprinter.cmi
 loadprinter.cmi : \
     ../parsing/longident.cmi \
@@ -308,6 +310,7 @@ main.cmo : \
     exec.cmi \
     debugger_config.cmi \
     ../utils/config.cmi \
+    ../utils/compilation_unit.cmi \
     command_line.cmi \
     ../file_formats/cmi_format.cmi \
     ../utils/clflags.cmi \
@@ -330,6 +333,7 @@ main.cmx : \
     exec.cmx \
     debugger_config.cmx \
     ../utils/config.cmx \
+    ../utils/compilation_unit.cmx \
     command_line.cmx \
     ../file_formats/cmi_format.cmx \
     ../utils/clflags.cmx \

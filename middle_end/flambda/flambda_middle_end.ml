@@ -17,15 +17,14 @@
 [@@@ocaml.warning "+a-4-30-40-41-42-66"]
 open! Int_replace_polymorphic_compare
 
-let _dump_function_sizes flam ~backend =
-  let module Backend = (val backend : Backend_intf.S) in
+let _dump_function_sizes flam =
   let than = max_int in
   Flambda_iterators.iter_on_set_of_closures_of_program flam
     ~f:(fun ~constant:_ (set_of_closures : Flambda.set_of_closures) ->
       Variable.Map.iter (fun fun_var
             (function_decl : Flambda.function_declaration) ->
           let closure_id = Closure_id.wrap fun_var in
-          let symbol = Backend.closure_symbol closure_id in
+          let symbol = Symbol.for_lifted_closure closure_id in
           match Inlining_cost.lambda_smaller' function_decl.body ~than with
           | Some size -> Format.eprintf "%a %d\n" Symbol.print symbol size
           | None -> assert false)
@@ -221,7 +220,7 @@ let lambda_to_clambda ~backend ~filename ~prefixname ~ppf_dump
       ~module_ident:program.module_ident
       ~module_initializer:program.code
   in
-  let export = Build_export_info.build_transient ~backend program in
+  let export = Build_export_info.build_transient program in
   let clambda, preallocated_blocks, constants =
     Profile.record_call "backend" (fun () ->
       (program, export)
@@ -229,16 +228,18 @@ let lambda_to_clambda ~backend ~filename ~prefixname ~ppf_dump
       |> flambda_raw_clambda_dump_if ppf_dump
       |> (fun { Flambda_to_clambda. expr; preallocated_blocks;
                 structured_constants; exported; } ->
-           Compilenv.set_export_info exported;
-           let clambda =
-             Un_anf.apply ~what:(Compilenv.current_unit_symbol ())
-               ~ppf_dump expr
+           Compilation_state.Flambda_only.set_export_info exported;
+           let what =
+             Symbol.for_module_block
+               (Persistent_env.Current_unit.get_exn ())
            in
+           let clambda = Un_anf.apply ~what ~ppf_dump expr in
            clambda, preallocated_blocks, structured_constants))
   in
   let constants =
     List.map (fun (symbol, definition) ->
-        { Clambda.symbol = Linkage_name.to_string (Symbol.label symbol);
+        { Clambda.
+          symbol;
           exported = true;
           definition;
           provenance = None;

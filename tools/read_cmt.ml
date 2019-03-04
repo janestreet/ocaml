@@ -51,7 +51,8 @@ let print_info cmt =
     | Some filename -> open_out filename
   in
   let open Cmt_format in
-  Printf.fprintf oc "module name: %s\n" cmt.cmt_modname;
+  Printf.fprintf oc "module name: %s\n"
+    (Compilation_unit.Name.to_string cmt.cmt_modname);
   begin match cmt.cmt_annots with
     Packed (_, list) ->
       Printf.fprintf oc "pack: %s\n" (String.concat " " list)
@@ -82,14 +83,16 @@ let print_info cmt =
     | Some digest ->
       Printf.fprintf oc "interface digest: %s\n" (Digest.to_hex digest);
   end;
-  List.iter (fun (name, crco) ->
+  List.iter (fun (unit, crco) ->
     let crc =
       match crco with
         None -> dummy_crc
       | Some crc -> Digest.to_hex crc
     in
-    Printf.fprintf oc "import: %s %s\n" name crc;
-  ) (List.sort compare cmt.cmt_imports);
+    Printf.fprintf oc "import: %s %s\n"
+      Compilation_unit.(Name.to_string (name unit)) crc;
+    ) (List.sort (fun (unit1, _) (unit2, _) -> Compilation_unit.compare unit1 unit2)
+         cmt.cmt_imports);
   Printf.fprintf oc "%!";
   begin match !target_filename with
   | None -> ()

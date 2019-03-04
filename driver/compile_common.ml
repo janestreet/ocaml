@@ -18,8 +18,9 @@ open Compenv
 
 type info = {
   source_file : string;
-  module_name : string;
+  module_name : Compilation_unit.Name.t;
   output_prefix : string;
+  for_pack_prefix : Compilation_unit.Prefix.t;
   env : Env.t;
   ppf_dump : Format.formatter;
   tool_name : string;
@@ -33,14 +34,19 @@ let annot i = i.output_prefix ^ ".annot"
 
 let with_info ~native ~tool_name ~source_file ~output_prefix ~dump_ext k =
   Compmisc.init_path ();
-  let module_name = module_of_filename source_file output_prefix in
-  Env.set_unit_name module_name;
+  let module_name =
+    Compilation_unit.Name.of_string
+      (module_of_filename source_file output_prefix) in
+  let for_pack_prefix =
+    Compilation_unit.Prefix.parse_for_pack !Clflags.for_package in
+  Persistent_env.Current_unit.set ~prefix:for_pack_prefix module_name;
   let env = Compmisc.initial_env() in
   let dump_file = String.concat "." [output_prefix; dump_ext] in
   Compmisc.with_ppf_dump ~file_prefix:dump_file @@ fun ppf_dump ->
   k {
     module_name;
     output_prefix;
+    for_pack_prefix;
     env;
     source_file;
     ppf_dump;
@@ -57,38 +63,39 @@ let parse_intf i =
 
 let typecheck_intf info ast =
   Profile.(record_call typing) @@ fun () ->
-  let tsg =
+  let tintf =
     ast
-    |> Typemod.type_interface info.env
+    |> Typemod.type_interface info.source_file info.env
     |> print_if info.ppf_dump Clflags.dump_typedtree Printtyped.interface
   in
-  let sg = tsg.Typedtree.sig_type in
+  let uty = tintf.Typedtree.tintf_type in
   if !Clflags.print_types then
     Printtyp.wrap_printing_env ~error:false info.env (fun () ->
         Format.(fprintf std_formatter) "%a@."
-          (Printtyp.printed_signature info.source_file)
-          sg);
-  ignore (Includemod.signatures info.env ~mark:Mark_both sg sg);
+          (Printtyp.printed_interface info.source_file)
+          uty);
+  ignore (Includemod.compunits ~loc:(Location.in_file (info.source_file))
+            info.env ~mark:Mark_both uty uty);
   Typecore.force_delayed_checks ();
   Warnings.check_fatal ();
-  tsg
+  tintf
 
-let emit_signature info ast tsg =
-  let sg =
+let emit_interface info ast tintf =
+  let cmi =
     let alerts = Builtin_attributes.alerts_of_sig ast in
-    Env.save_signature ~alerts tsg.Typedtree.sig_type
+    Env.save_interface ~alerts tintf.Typedtree.tintf_type
       info.module_name (info.output_prefix ^ ".cmi")
   in
-  Typemod.save_signature info.module_name tsg
-    info.output_prefix info.source_file info.env sg
+  Typemod.save_interface info.module_name tintf
+    info.output_prefix info.source_file info.env cmi
 
 let interface info =
   Profile.record_call info.source_file @@ fun () ->
   let ast = parse_intf info in
   if Clflags.(should_stop_after Compiler_pass.Parsing) then () else begin
-    let tsg = typecheck_intf info ast in
+    let tintf = typecheck_intf info ast in
     if not !Clflags.print_types then begin
-      emit_signature info ast tsg
+      emit_interface info ast tintf
     end
   end
 

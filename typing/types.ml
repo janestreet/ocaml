@@ -304,6 +304,10 @@ and ext_status =
   | Text_next                      (* not first constructor of an extension *)
   | Text_exception                 (* an exception *)
 
+(* Representation of the module type of a compilation unit. *)
+type compilation_unit =
+    Unit_signature of signature
+  | Unit_functor of (Ident.t * module_type) list * signature
 
 (* Constructor and record label descriptions inserted held in typing
    environments *)
@@ -377,3 +381,11 @@ let signature_item_id = function
   | Sig_class (id, _, _, _)
   | Sig_class_type (id, _, _, _)
     -> id
+
+let module_type_of_compilation_unit = function
+    Unit_signature sg -> Mty_signature sg
+  | Unit_functor (args, sg) ->
+      List.fold_right (fun (id, mty) acc ->
+          Mty_functor (Named (Some id, mty), acc))
+        args
+        (Mty_signature sg)

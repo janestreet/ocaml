@@ -200,14 +200,19 @@ let traverse
         | _ -> ()
         end
       | Q_symbol symbol ->
-        let compilation_unit = Symbol.compilation_unit symbol in
-        if Compilation_unit.is_current compilation_unit then begin
-          match Symbol.Map.find symbol symbol_id with
-          | exception Not_found ->
-            Misc.fatal_errorf "cannot find symbol's export id %a\n"
-              Symbol.print symbol
-          | export_id ->
-            conditionally_add_export_id export_id
+        begin match Symbol.compilation_unit symbol with
+        | Predef -> ()
+        | Compilation_unit compilation_unit ->
+          if Compilation_unit.equal compilation_unit
+               (Persistent_env.Current_unit.get_exn ())
+          then begin
+            match Symbol.Map.find symbol symbol_id with
+            | exception Not_found ->
+              Misc.fatal_errorf "cannot find symbol's export id %a\n"
+                Symbol.print symbol
+            | export_id ->
+              conditionally_add_export_id export_id
+          end
         end
       | Q_set_of_closures_id set_of_closures_id ->
         begin match

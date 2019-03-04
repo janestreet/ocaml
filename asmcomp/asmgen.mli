@@ -26,7 +26,7 @@ type middle_end =
 
 (** Compile an implementation from Lambda using the given middle end. *)
 val compile_implementation
-   : ?toplevel:(string -> bool)
+   : ?toplevel:(Backend_sym.t -> bool)
   -> backend:(module Backend_intf.S)
   -> filename:string
   -> prefixname:string
@@ -46,7 +46,8 @@ exception Error of error
 val report_error: Format.formatter -> error -> unit
 
 val compile_unit
-   : output_prefix:string
+   : comp_unit:Backend_compilation_unit.t
+   -> output_prefix:string
    -> asm_filename:string
    -> keep_asm:bool
    -> obj_filename:string

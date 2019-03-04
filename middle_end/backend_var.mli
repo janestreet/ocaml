@@ -15,6 +15,11 @@
 (** Variables used in the backend, optionally equipped with "provenance"
     information, used for the emission of debugging information. *)
 
+(* CR-soon mshinwell: Move this into the asmcomp/ directory and change
+   [Clambda] to use [Variable].  This should be done once the Flambda gdb
+   patches are ready, so we can add the necessary provenance info. to
+   [Variable]. *)
+
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
 include module type of struct include Ident end

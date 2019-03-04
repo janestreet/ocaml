@@ -50,6 +50,8 @@ type address =
   | Aident of Ident.t
   | Adot of address * int
 
+val address_head: address -> Ident.t
+
 type t
 
 val empty: t
@@ -344,34 +346,48 @@ val reset_cache: unit -> unit
 (* To be called before each toplevel phrase. *)
 val reset_cache_toplevel: unit -> unit
 
-(* Remember the name of the current compilation unit. *)
-val set_unit_name: string -> unit
-val get_unit_name: unit -> string
 
 (* Read, save a signature to/from a file *)
-val read_signature: modname -> filepath -> signature
+val read_interface: Compilation_unit.Name.t -> filepath -> compilation_unit
         (* Arguments: module name, file name. Results: signature. *)
-val save_signature:
-  alerts:alerts -> signature -> modname -> filepath
+val save_interface:
+  alerts:alerts -> compilation_unit -> Compilation_unit.Name.t -> filepath
   -> Cmi_format.cmi_infos
         (* Arguments: signature, module name, file name. *)
-val save_signature_with_imports:
-  alerts:alerts -> signature -> modname -> filepath -> crcs
-  -> Cmi_format.cmi_infos
+val save_interface_with_imports:
+  alerts:alerts -> compilation_unit -> Compilation_unit.Name.t -> filepath
+  -> Compilation_unit.crcs -> Cmi_format.cmi_infos
         (* Arguments: signature, module name, file name,
            imported units with their CRCs. *)
 
+val read_as_parameter: Location.t -> Compilation_unit.Name.t -> module_type
+
 (* Return the CRC of the interface of the given compilation unit *)
-val crc_of_unit: modname -> Digest.t
+val crc_of_unit: Compilation_unit.Name.t -> Digest.t
 
 (* Return the set of compilation units imported, with their CRC *)
-val imports: unit -> crcs
+val imports: unit -> Compilation_unit.crcs
+
+(* Return the set of compilation units imported, with their CRC *)
+val functorized_pack_imports: unit -> (Compilation_unit.t * Ident.t) list
 
 (* may raise Persistent_env.Consistbl.Inconsistency *)
-val import_crcs: source:string -> crcs -> unit
+val import_crcs: source:string -> Compilation_unit.crcs -> unit
 
 (* [is_imported_opaque md] returns true if [md] is an opaque imported module  *)
-val is_imported_opaque: modname -> bool
+val is_imported_opaque: Compilation_unit.Name.t -> bool
+
+(* [is_imported_opaque md] returns true if [md] is a parameter of a functorized
+   module *)
+val is_imported_as_parameter: Compilation_unit.Name.t -> bool
+
+(* [is_imported_from_functorized_pack md] checks if [md] has been imported
+   as a unit from the same functorized pack as the current one *)
+val is_imported_from_functorized_pack: Compilation_unit.Name.t -> bool
+
+(* [functorized_pack_component_address md] returns the local identifier
+   generated for [md] as argument for the functor *)
+val functorized_pack_component_id: Compilation_unit.Name.t -> Ident.t
 
 (* Summaries -- compact representation of an environment, to be
    exported in debugging information. *)
@@ -390,6 +406,7 @@ val env_of_only_summary : (summary -> Subst.t -> t) -> t -> t
 type error =
   | Missing_module of Location.t * Path.t * Path.t
   | Illegal_value_name of Location.t * string
+  | Parameter_interface_unavailable of Location.t * Compilation_unit.Name.t
   | Lookup_error of Location.t * t * lookup_error
 
 exception Error of error

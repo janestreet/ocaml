@@ -21,6 +21,7 @@ open Reg
 open Mach
 
 module Int = Numbers.Int
+module S = Backend_sym
 module V = Backend_var
 module VP = Backend_var.With_provenance
 
@@ -223,7 +224,12 @@ let join_array env rs =
       Some res
 
 (* Name of function being compiled *)
-let current_function_name = ref ""
+let current_function_name = ref None
+
+let current_function_is func =
+  match !current_function_name with
+  | None -> Misc.fatal_error "[current_function_name] not set"
+  | Some func' -> S.equal func func'
 
 module Effect = struct
   type t =
@@ -1129,7 +1135,7 @@ method emit_tail (env:environment) exp =
                 self#insert_moves env r1 loc_arg;
                 self#maybe_emit_spacetime_move env ~spacetime_reg;
                 self#insert_debug env call dbg loc_arg [||];
-              end else if func = !current_function_name then begin
+              end else if current_function_is func then begin
                 let call = Iop (Itailcall_imm { func; label_after; }) in
                 let loc_arg' = Proc.loc_parameters r1 in
                 let spacetime_reg =
@@ -1244,7 +1250,7 @@ method insert_prologue _f ~loc_arg ~rarg ~spacetime_node_hole:_ ~env =
 method initial_env () = env_empty
 
 method emit_fundecl f =
-  current_function_name := f.Cmm.fun_name;
+  current_function_name := Some f.Cmm.fun_name;
   let rargs =
     List.map
       (fun (id, ty) -> let r = self#regs_for ty in name_regs id r; r)
@@ -1303,4 +1309,4 @@ let _ =
   Simplif.is_tail_native_heuristic := is_tail_call
 
 let reset () =
-  current_function_name := ""
+  current_function_name := None

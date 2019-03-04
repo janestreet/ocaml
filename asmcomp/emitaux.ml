@@ -30,15 +30,8 @@ let emit_printf fmt =
 
 let emit_int32 n = emit_printf "0x%lx" n
 
-let emit_symbol esc s =
-  for i = 0 to String.length s - 1 do
-    let c = s.[i] in
-    match c with
-      'A'..'Z' | 'a'..'z' | '0'..'9' | '_' ->
-        output_char !output_channel c
-    | _ ->
-        Printf.fprintf !output_channel "%c%02x" esc (Char.code c)
-  done
+let emit_symbol ?reloc s =
+  output_string !output_channel (Asm_symbol.to_escaped_string ?reloc s)
 
 let emit_string_literal s =
   let last_was_escape = ref false in
@@ -274,18 +267,6 @@ let emit_frames a =
   Hashtbl.iter emit_defname defnames;
   a.efa_align Arch.size_addr;
   frame_descriptors := []
-
-(* Detection of functions that can be duplicated between a DLL and
-   the main program (PR#4690) *)
-
-let isprefix s1 s2 =
-  String.length s1 <= String.length s2
-  && String.sub s2 0 (String.length s1) = s1
-
-let is_generic_function name =
-  List.exists
-    (fun p -> isprefix p name)
-    ["caml_apply"; "caml_curry"; "caml_send"; "caml_tuplify"]
 
 (* CFI directives *)
 

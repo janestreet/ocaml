@@ -36,12 +36,10 @@ module Storer =
 module V = Backend_var
 module VP = Backend_var.With_provenance
 
-(* The current backend *)
+(* Auxiliaries for compiling functions *)
 
 let no_phantom_lets () =
   Misc.fatal_error "Closure does not support phantom let generation"
-
-(* Auxiliaries for compiling functions *)
 
 let rec split_list n l =
   if n <= 0 then ([], l) else begin
@@ -58,12 +56,17 @@ let rec build_closure_env env_param pos = function
           (build_closure_env env_param (pos+1) rem)
 
 (* Auxiliary for accessing globals.  We change the name of the global
-   to the name of the corresponding asm symbol.  This is done here
-   and no longer in Cmmgen so that approximations stored in .cmx files
-   contain the right names if the -for-pack option is active. *)
+   to the name of the corresponding symbol. *)
 
 let getglobal dbg id =
-  Uprim(P.Pread_symbol (Compilenv.symbol_for_global id), [], dbg)
+  let comp_unit = Compilation_state.compilation_unit_for_global id in
+  let sym =
+    match comp_unit with
+    | Compilation_state.Predef -> Symbol.for_predefined_exn id
+    | Compilation_state.Compilation_unit comp_unit ->
+      Symbol.for_module_block comp_unit
+  in
+  Uprim (P.Pread_symbol sym, [], dbg)
 
 (* Check if a variable occurs in a [clambda] term. *)
 
@@ -234,8 +237,10 @@ let rec is_pure = function
 
 let make_const c = (Uconst c, Value_const c)
 let make_const_ref c =
-  make_const(Uconst_ref(Compilenv.new_structured_constant ~shared:true c,
-    Some c))
+  let sym =
+    Compilation_state.Closure_only.new_structured_constant ~shared:true c
+  in
+  make_const (Uconst_ref (sym, Some c))
 let make_const_int n = make_const (Uconst_int n)
 let make_const_ptr n = make_const (Uconst_ptr n)
 let make_const_bool b = make_const_ptr(if b then 1 else 0)
@@ -471,10 +476,11 @@ let simplif_prim_pure ~backend fpc p (args, approxs) dbg =
       in
       begin try
         let cst = Uconst_block (tag, List.map field approxs) in
-        let name =
-          Compilenv.new_structured_constant cst ~shared:true
+        let sym =
+          Compilation_state.Closure_only.new_structured_constant cst
+            ~shared:true
         in
-        make_const (Uconst_ref (name, Some cst))
+        make_const (Uconst_ref (sym, Some cst))
       with Exit ->
         (Uprim(p, args, dbg), Value_tuple (Array.of_list approxs))
       end
@@ -814,12 +820,12 @@ let strengthen_approx appl approx =
 let check_constant_result ulam approx =
   match approx with
     Value_const c when is_pure ulam -> make_const c
-  | Value_global_field (id, i) when is_pure ulam ->
+  | Value_global_field (sym, i) when is_pure ulam ->
       begin match ulam with
       | Uprim(P.Pfield _, [Uprim(P.Pread_symbol _, _, _)], _) -> (ulam, approx)
       | _ ->
           let glb =
-            Uprim(P.Pread_symbol id, [], Debuginfo.none)
+            Uprim(P.Pread_symbol sym, [], Debuginfo.none)
           in
           Uprim(P.Pfield i, [glb], Debuginfo.none), approx
       end
@@ -867,10 +873,10 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       close_approx_var env id
   | Lconst cst ->
       let str ?(shared = true) cst =
-        let name =
-          Compilenv.new_structured_constant cst ~shared
+        let sym =
+          Compilation_state.Closure_only.new_structured_constant cst ~shared
         in
-        Uconst_ref (name, Some cst)
+        Uconst_ref (sym, Some cst)
       in
       let rec transl = function
         | Const_base(Const_int n) -> Uconst_int n
@@ -1078,7 +1084,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
   | Lprim(Pgetglobal id, [], loc) ->
       let dbg = Debuginfo.from_location loc in
       check_constant_result (getglobal dbg id)
-                            (Compilenv.global_approx id)
+                            (Compilation_state.Closure_only.global_approx id)
   | Lprim(Pfield n, [lam], loc) ->
       let (ulam, approx) = close env lam in
       let dbg = Debuginfo.from_location loc in
@@ -1241,7 +1247,8 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
     List.map
       (function
           (id, Lfunction{kind; params; return; body; loc}) ->
-            let label = Compilenv.make_symbol (Some (V.unique_name id)) in
+            let fun_var = Variable.create_with_same_name_as_ident id in
+            let label = Symbol.for_lifted_variable fun_var in
             let arity = List.length params in
             let fundesc =
               {fun_label = label;
@@ -1330,13 +1337,13 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
   (* Translate all function definitions. *)
   let clos_info_list =
     if initially_closed then begin
-      let snap = Compilenv.snapshot () in
+      let snap = Compilation_state.Closure_only.snapshot () in
       try List.map2 clos_fundef uncurried_defs clos_offsets
       with NotClosed ->
       (* If the hypothesis that the environment parameters are useless has been
          invalidated, then set [fun_closed] to false in all descriptions and
          recompile *)
-        Compilenv.backtrack snap; (* PR#6337 *)
+        Compilation_state.Closure_only.backtrack snap; (* PR#6337 *)
         List.iter
           (fun (_id, _params, _return, _body, fundesc, _dbg) ->
              fundesc.fun_closed <- false;
@@ -1432,7 +1439,7 @@ let collect_exported_structured_constants a =
     | Value_unknown | Value_global_field _ -> ()
   and const = function
     | Uconst_ref (s, (Some c)) ->
-        Compilenv.add_exported_constant s;
+        Compilation_state.Closure_only.add_exported_constant s;
         structured_constant c
     | Uconst_ref (_s, None) -> assert false (* Cannot be generated *)
     | Uconst_int _ | Uconst_ptr _ -> ()
@@ -1484,19 +1491,22 @@ let reset () =
 
 let intro ~backend ~size lam =
   reset ();
-  let id = Compilenv.make_symbol None in
-  global_approx := Array.init size (fun i -> Value_global_field (id, i));
-  Compilenv.set_global_approx(Value_tuple !global_approx);
+  let current_unit = Persistent_env.Current_unit.get_exn () in
+  let module_block = Symbol.for_module_block current_unit in
+  global_approx :=
+    Array.init size (fun i -> Value_global_field (module_block, i));
+  Compilation_state.Closure_only.set_global_approx
+    (Value_tuple !global_approx);
   let (ulam, _approx) =
     close { backend; fenv = V.Map.empty;
             cenv = V.Map.empty; mutable_vars = V.Set.empty } lam
   in
   let opaque =
     !Clflags.opaque
-    || Env.is_imported_opaque (Compilenv.current_unit_name ())
+    || Env.is_imported_opaque (Compilation_unit.name current_unit)
   in
   if opaque
-  then Compilenv.set_global_approx(Value_unknown)
+  then Compilation_state.Closure_only.set_global_approx Value_unknown
   else collect_exported_structured_constants (Value_tuple !global_approx);
   global_approx := [||];
   ulam

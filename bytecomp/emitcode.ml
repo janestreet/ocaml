@@ -418,6 +418,7 @@ let to_file outchan unit_name objfile ~required_globals code =
       (0, 0) in
   let compunit =
     { cu_name = unit_name;
+      cu_prefix = Compilation_unit.Prefix.parse_for_pack !Clflags.for_package;
       cu_pos = pos_code;
       cu_codesize = !out_position;
       cu_reloc = List.rev !reloc_info;
@@ -425,6 +426,9 @@ let to_file outchan unit_name objfile ~required_globals code =
       cu_primitives = List.map Primitive.byte_name
                                !Translmod.primitive_declarations;
       cu_required_globals = Ident.Set.elements required_globals;
+      cu_functor_pack_imports =
+        Env.functorized_pack_imports ()
+        |> List.map fst;
       cu_force_link = !Clflags.link_everything;
       cu_debug = pos_debug;
       cu_debugsize = size_debug } in

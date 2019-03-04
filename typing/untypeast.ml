@@ -45,6 +45,8 @@ type mapper = {
   include_description: mapper -> T.include_description -> include_description;
   label_declaration: mapper -> T.label_declaration -> label_declaration;
   location: mapper -> Location.t -> Location.t;
+  implementation: mapper -> T.implementation -> implementation;
+  interface: mapper -> T.interface -> interface;
   module_binding: mapper -> T.module_binding -> module_binding;
   module_declaration: mapper -> T.module_declaration -> module_declaration;
   module_substitution: mapper -> T.module_substitution -> module_substitution;
@@ -835,14 +837,24 @@ let class_field sub cf =
 
 let location _sub l = l
 
+let implementation sub impl =
+  match impl.timpl_desc with
+    Timpl_structure str | Timpl_functor (_, str) -> structure sub str
+
+let interface sub intf =
+  match intf.tintf_desc with
+    Tintf_signature sg | Tintf_functor (_, sg) -> signature sub sg
+
 let default_mapper =
   {
     attribute = attribute;
     attributes = attributes;
     binding_op = binding_op;
+    implementation = implementation;
     structure = structure;
     structure_item = structure_item;
     module_expr = module_expr;
+    interface = interface;
     signature = signature;
     signature_item = signature_item;
     module_type = module_type;
@@ -889,3 +901,9 @@ let untype_structure ?(mapper=default_mapper) structure =
 
 let untype_signature ?(mapper=default_mapper) signature =
   mapper.signature mapper signature
+
+let untype_implementation ?(mapper=default_mapper) implementation =
+  mapper.implementation mapper implementation
+
+let untype_interface ?(mapper=default_mapper) interface =
+  mapper.interface mapper interface

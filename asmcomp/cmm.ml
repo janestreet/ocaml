@@ -113,11 +113,11 @@ type rec_flag = Nonrecursive | Recursive
 
 type phantom_defining_expr =
   | Cphantom_const_int of Targetint.t
-  | Cphantom_const_symbol of string
+  | Cphantom_const_symbol of Backend_sym.t
   | Cphantom_var of Backend_var.t
   | Cphantom_offset_var of { var : Backend_var.t; offset_in_words : int; }
   | Cphantom_read_field of { var : Backend_var.t; field : int; }
-  | Cphantom_read_symbol_field of { sym : string; field : int; }
+  | Cphantom_read_symbol_field of { sym : Backend_sym.t; field : int; }
   | Cphantom_block of { tag : int; fields : Backend_var.t list; }
 
 type memory_chunk =
@@ -135,7 +135,7 @@ type memory_chunk =
 
 and operation =
     Capply of machtype
-  | Cextcall of string * machtype * bool * label option
+  | Cextcall of Backend_sym.t * machtype * bool * label option
     (** If specified, the given label will be placed immediately after the
         call (at the same place as any frame descriptor would reference). *)
   | Cload of memory_chunk * Asttypes.mutable_flag
@@ -157,7 +157,7 @@ type expression =
     Cconst_int of int * Debuginfo.t
   | Cconst_natint of nativeint * Debuginfo.t
   | Cconst_float of float * Debuginfo.t
-  | Cconst_symbol of string * Debuginfo.t
+  | Cconst_symbol of Backend_sym.t * Debuginfo.t
   | Cconst_pointer of int * Debuginfo.t
   | Cconst_natpointer of nativeint * Debuginfo.t
   | Cblockheader of nativeint * Debuginfo.t
@@ -189,7 +189,7 @@ type codegen_option =
   | No_CSE
 
 type fundecl =
-  { fun_name: string;
+  { fun_name: Backend_sym.t;
     fun_args: (Backend_var.With_provenance.t * machtype) list;
     fun_body: expression;
     fun_codegen_options : codegen_option list;
@@ -197,15 +197,15 @@ type fundecl =
   }
 
 type data_item =
-    Cdefine_symbol of string
-  | Cglobal_symbol of string
+    Cdefine_symbol of Backend_sym.t
+  | Cglobal_symbol of Backend_sym.t
   | Cint8 of int
   | Cint16 of int
   | Cint32 of nativeint
   | Cint of nativeint
   | Csingle of float
   | Cdouble of float
-  | Csymbol_address of string
+  | Csymbol_address of Backend_sym.t
   | Cstring of string
   | Cskip of int
   | Calign of int

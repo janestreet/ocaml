@@ -121,6 +121,10 @@ let is_constructor_typath p =
   | Regular _ -> false
   | _ -> true
 
+let of_compilation_unit unit =
+  Pident (Ident.create_persistent Compilation_unit.(Name.to_string (name unit)))
+
+
 module T = struct
   type nonrec t = t
   let compare = compare

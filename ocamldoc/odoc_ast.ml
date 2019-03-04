@@ -21,7 +21,7 @@ open Typedtree
 let print_DEBUG3 s = print_string s ; print_newline ();;
 let print_DEBUG s = print_string s ; print_newline ();;
 
-type typedtree = (Typedtree.structure * Typedtree.module_coercion)
+type typedtree = (Typedtree.implementation * Typedtree.module_coercion)
 
 open Odoc_parameter
 open Odoc_value
@@ -1889,7 +1889,12 @@ module Analyser =
 
      let analyse_typed_tree source_file input_file
          (parsetree : Parsetree.structure) (typedtree : typedtree) =
-       let (tree_structure, _) = typedtree in
+       let extract_tree_structure impl =
+         match impl.timpl_desc with
+           Timpl_structure str -> str
+         | Timpl_functor (_, str) -> str
+       in
+       let tree_structure = extract_tree_structure (fst typedtree) in
        prepare_file source_file input_file;
        (* We create the t_module for this file. *)
        let mod_name = String.capitalize_ascii (Filename.basename (Filename.chop_extension source_file)) in

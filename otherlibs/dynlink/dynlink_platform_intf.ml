@@ -27,10 +27,10 @@ module type S = sig
   module Unit_header : sig
     type t
 
-    val name : t -> string
+    val name : t -> Dynlink_compilerlibs.Compilation_unit.Name.t
     val crc : t -> Digest.t option
 
-    val interface_imports : t -> (string * Digest.t option) list
+    val interface_imports : t -> Dynlink_compilerlibs.Compilation_unit.crcs
     val implementation_imports : t -> (string * Digest.t option) list
 
     val defined_symbols : t -> string list
@@ -48,10 +48,10 @@ module type S = sig
   val fold_initial_units
      : init:'a
     -> f:('a
-      -> comp_unit:string
+      -> comp_unit:Dynlink_compilerlibs.Compilation_unit.t
       -> interface:Digest.t option
       -> implementation:(Digest.t option * Dynlink_types.implem_state) option
-      -> defined_symbols:string list
+      -> defined_symbols:Dynlink_compilerlibs.Compilation_unit.Name.t list
       -> 'a)
     -> 'a
 

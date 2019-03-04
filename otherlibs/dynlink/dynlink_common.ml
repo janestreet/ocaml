@@ -34,6 +34,7 @@ end
 module Make (P : Dynlink_platform_intf.S) = struct
   module DT = Dynlink_types
   module UH = P.Unit_header
+  module CU = Compilation_unit
 
   type interface_dep =
     | Name  (* the only use of the interface can be via a module alias *)
@@ -112,19 +113,21 @@ module Make (P : Dynlink_platform_intf.S) = struct
         ~f:(fun (ifaces, implems, defined_symbols)
                 ~comp_unit ~interface ~implementation
                 ~defined_symbols:defined_symbols_this_unit ->
+          let comp_unit_name = CU.(Name.to_string (name comp_unit)) in
           let ifaces =
             match interface with
-            | None -> String.Map.add comp_unit (Name, exe) ifaces
-            | Some crc -> String.Map.add comp_unit (Contents crc, exe) ifaces
+            | None -> String.Map.add comp_unit_name (Name, exe) ifaces
+            | Some crc -> String.Map.add comp_unit_name (Contents crc, exe) ifaces
           in
           let implems =
             match implementation with
             | None -> implems
             | Some (crc, state) ->
-              String.Map.add comp_unit (crc, exe, state) implems
+              String.Map.add comp_unit_name (crc, exe, state) implems
           in
           let defined_symbols_this_unit =
-            String.Set.of_list defined_symbols_this_unit
+            String.Set.of_list
+              (List.map CU.Name.to_string defined_symbols_this_unit)
           in
           check_symbols_disjoint ~descr:(lazy "in the executable file")
             defined_symbols_this_unit defined_symbols;
@@ -153,13 +156,17 @@ module Make (P : Dynlink_platform_intf.S) = struct
     end
 
   let set_loaded_implem filename ui implems =
-    String.Map.add (UH.name ui) (UH.crc ui, filename, DT.Loaded) implems
+    String.Map.add
+      (CU.Name.to_string (UH.name ui))
+      (UH.crc ui, filename, DT.Loaded)
+      implems
 
   let set_loaded filename ui (state : State.t) =
     { state with implems = set_loaded_implem filename ui state.implems }
 
   let check_interface_imports filename ui ifaces =
-    List.fold_left (fun ifaces (name, crc) ->
+    List.fold_left (fun ifaces (unit, crc) ->
+        let name = CU.(Name.to_string (name unit)) in
         match String.Map.find name ifaces with
         | exception Not_found -> begin
             match crc with
@@ -208,7 +215,7 @@ module Make (P : Dynlink_platform_intf.S) = struct
       (UH.implementation_imports ui)
 
   let check_name filename ui priv ifaces implems =
-    let name = UH.name ui in
+    let name = CU.Name.to_string (UH.name ui) in
     if String.Map.mem name implems then begin
       raise (DT.Error (Module_already_loaded name))
     end;
@@ -225,7 +232,8 @@ module Make (P : Dynlink_platform_intf.S) = struct
   let check filename (units : UH.t list) (state : State.t) ~priv =
     List.iter (fun ui -> check_unsafe_module ui) units;
     let new_units =
-      String.Set.of_list (List.map (fun ui -> UH.name ui) units)
+      String.Set.of_list
+        (List.map (fun ui -> CU.Name.to_string (UH.name ui)) units)
     in
     let implems =
       List.fold_left (fun implems ui ->
@@ -251,7 +259,7 @@ module Make (P : Dynlink_platform_intf.S) = struct
             lazy (Printf.sprintf "between the executable file (and any \
                 existing dynamically-loaded units) and the unit `%s' being \
                 dynamically loaded from %s"
-              (UH.name ui)
+              (CU.Name.to_string (UH.name ui))
               filename)
           in
           let symbols = String.Set.of_list (UH.defined_symbols ui) in

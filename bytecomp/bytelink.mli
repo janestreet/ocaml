@@ -22,18 +22,18 @@ val reset : unit -> unit
 
 val check_consistency: filepath -> Cmo_format.compilation_unit -> unit
 
-val extract_crc_interfaces: unit -> crcs
+val extract_crc_interfaces: unit -> Compilation_unit.crcs
 
 type error =
   | File_not_found of filepath
   | Not_an_object_file of filepath
   | Wrong_object_name of filepath
   | Symbol_error of filepath * Symtable.error
-  | Inconsistent_import of modname * filepath * filepath
+  | Inconsistent_import of Compilation_unit.Name.t * filepath * filepath
   | Custom_runtime
   | File_exists of filepath
   | Cannot_open_dll of filepath
-  | Required_module_unavailable of modname
+  | Required_module_unavailable of Compilation_unit.Name.t
   | Camlheader of string * filepath
 
 exception Error of error

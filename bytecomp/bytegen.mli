@@ -18,7 +18,7 @@
 open Lambda
 open Instruct
 
-val compile_implementation: string -> lambda -> instruction list
+val compile_implementation: Compilation_unit.Name.t -> lambda -> instruction list
 val compile_phrase: lambda -> instruction list * instruction list
 val reset: unit -> unit
 

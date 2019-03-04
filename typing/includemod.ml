@@ -574,10 +574,15 @@ let () =
 (* Check that an implementation of a compilation unit meets its
    interface. *)
 
-let compunit env ~mark impl_name impl_sig intf_name intf_sig =
+let compilation_unit_types ~loc env ~mark ctx subst uty1 uty2 =
+  let mty1 = Types.module_type_of_compilation_unit uty1 in
+  let mty2 = Types.module_type_of_compilation_unit uty2 in
+  modtypes ~loc env ~mark ctx subst mty1 mty2
+
+let implementation env ~mark impl_name impl_uty intf_name intf_uty =
   try
-    signatures ~loc:(Location.in_file impl_name) env ~mark []
-      Subst.identity impl_sig intf_sig
+    compilation_unit_types ~loc:(Location.in_file impl_name) env ~mark []
+      Subst.identity impl_uty intf_uty
   with Error reasons ->
     raise(Error(([], Env.empty,Interface_mismatch(impl_name, intf_name))
                 :: reasons))
@@ -594,6 +599,8 @@ let strengthened_module_decl ~loc ~aliasable env ?(mark=Mark_both)
       md1 path1 md2 =
   strengthened_module_decl ~loc ~aliasable env ~mark [] Subst.identity
     md1 path1 md2
+let compunits ~loc env ?(mark=Mark_both) uty1 uty2 =
+  compilation_unit_types ~loc env ~mark [] Subst.identity uty1 uty2
 
 (*
 let modtypes env m1 m2 =

@@ -46,6 +46,8 @@ type mapper = {
   label_declaration:
     mapper -> Typedtree.label_declaration -> label_declaration;
   location: mapper -> Location.t -> Location.t;
+  implementation: mapper -> Typedtree.implementation -> implementation;
+  interface: mapper -> Typedtree.interface -> interface;
   module_binding: mapper -> Typedtree.module_binding -> module_binding;
   module_declaration:
     mapper -> Typedtree.module_declaration -> module_declaration;
@@ -81,5 +83,9 @@ val default_mapper : mapper
 
 val untype_structure : ?mapper:mapper -> Typedtree.structure -> structure
 val untype_signature : ?mapper:mapper -> Typedtree.signature -> signature
+
+val untype_implementation :
+  ?mapper:mapper -> Typedtree.implementation -> implementation
+val untype_interface : ?mapper:mapper -> Typedtree.interface -> interface
 
 val constant : Asttypes.constant -> Parsetree.constant

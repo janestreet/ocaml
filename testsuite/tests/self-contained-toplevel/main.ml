@@ -21,12 +21,12 @@ arguments = "input.ml"
 let () =
   (* Make sure it's no longer available on disk *)
   if Sys.file_exists "foo.cmi" then Sys.remove "foo.cmi";
-  let module Persistent_signature = Persistent_env.Persistent_signature in
-  let old_loader = !Persistent_signature.load in
-  Persistent_signature.load := (fun ~unit_name ->
-    match unit_name with
+  let module Persistent_interface = Persistent_env.Persistent_interface in
+  let old_loader = !Persistent_interface.load in
+  Persistent_interface.load := (fun ~unit_name ->
+    match Compilation_unit.Name.to_string unit_name with
     | "Foo" ->
-      Some { Persistent_signature.
+      Some { Persistent_interface.
              filename = Sys.executable_name
            ; cmi      = Marshal.from_string Cached_cmi.foo 0
            }

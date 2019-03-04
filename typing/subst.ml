@@ -514,6 +514,18 @@ and modtype_declaration scoping s decl  =
     mtd_loc = loc s decl.mtd_loc;
   }
 
+let compilation_unit scoping s uty =
+  match uty with
+  | Unit_signature sg ->
+      Unit_signature (signature scoping s sg)
+  | Unit_functor(args, res) ->
+      let args', s' = List.fold_left (fun (args, subst) (id, arg) ->
+          let id' = Ident.rename id in
+          (id', modtype scoping subst arg) :: args,
+          add_module id (Pident id') subst)
+          ([], s) args
+      in
+      Unit_functor(List.rev args', signature scoping s' res)
 
 (* For every binding k |-> d of m1, add k |-> f d to m2
    and return resulting merged map. *)

@@ -27,6 +27,8 @@ module Signature_names : sig
   type t
 
   val simplify: Env.t -> t -> signature -> signature
+
+  val simplify_implementation: Env.t -> t -> compilation_unit -> compilation_unit
 end
 
 val type_module:
@@ -38,10 +40,10 @@ val type_toplevel_phrase:
   Env.t -> Parsetree.structure ->
   Typedtree.structure * Types.signature * Signature_names.t * Env.t
 val type_implementation:
-  string -> string -> string -> Env.t -> Parsetree.structure ->
-  Typedtree.structure * Typedtree.module_coercion
+  string -> string -> Compilation_unit.Name.t -> Env.t -> Parsetree.structure ->
+  Typedtree.implementation * Typedtree.module_coercion
 val type_interface:
-        Env.t -> Parsetree.signature -> Typedtree.signature
+        string -> Env.t -> Parsetree.signature -> Typedtree.interface
 val transl_signature:
         Env.t -> Parsetree.signature -> Typedtree.signature
 val check_nongen_schemes:
@@ -58,12 +60,13 @@ val modtype_of_package:
 
 val path_of_module : Typedtree.module_expr -> Path.t option
 
-val save_signature:
-  string -> Typedtree.signature -> string -> string ->
+val save_interface:
+  Compilation_unit.Name.t -> Typedtree.interface -> string -> string ->
   Env.t -> Cmi_format.cmi_infos -> unit
 
 val package_units:
-  Env.t -> string list -> string -> string -> Typedtree.module_coercion
+  Env.t -> string list -> string -> Compilation_unit.Name.t ->
+  Typedtree.module_coercion
 
 (* Should be in Envaux, but it breaks the build of the debugger *)
 val initial_env:
@@ -130,6 +133,7 @@ type error =
   | Badly_formed_signature of string * Typedecl.error
   | Cannot_hide_id of hiding_error
   | Invalid_type_subst_rhs
+  | Interface_flagged_as_parameter of Misc.filepath * string
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

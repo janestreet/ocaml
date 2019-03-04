@@ -13,8 +13,8 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(* "Package" a set of .cmx/.o files into one .cmx/.o file having the
-   original compilation units as sub-modules. *)
+(** "Package" a set of .cmx/.o files into one .cmx/.o file having the
+    original compilation units as sub-modules. *)
 
 val package_files
    : ppf_dump:Format.formatter
@@ -25,11 +25,14 @@ val package_files
   -> unit
 
 type error =
-    Illegal_renaming of string * string * string
-  | Forward_reference of string * string
-  | Wrong_for_pack of string * string
+  | Illegal_renaming of {
+      name_in_cmx : Compilation_unit.Name.t;
+      file : string;
+      desired_name : Compilation_unit.Name.t;
+    }
+  | Forward_reference of string * Compilation_unit.Name.t
+  | Wrong_for_pack of string * Compilation_unit.Prefix.t
   | Linking_error
-  | Assembler_error of string
   | File_not_found of string
 
 exception Error of error

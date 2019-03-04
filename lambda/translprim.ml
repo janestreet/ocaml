@@ -90,16 +90,16 @@ type prim =
 let used_primitives = Hashtbl.create 7
 let add_used_primitive loc env path =
   match path with
-    Some (Path.Pdot _ as path) ->
-      let path = Env.normalize_path_prefix (Some loc) env path in
-      let unit = Path.head path in
-      if Ident.global unit && not (Hashtbl.mem used_primitives path)
-      then Hashtbl.add used_primitives path loc
+    Some (Path.Pdot (parent, _)) ->
+      let addr = Env.find_module_address parent env in
+      let id = Env.address_head addr in
+      if Ident.persistent id && not (Hashtbl.mem used_primitives addr)
+      then Hashtbl.add used_primitives addr loc
   | _ -> ()
 
 let clear_used_primitives () = Hashtbl.clear used_primitives
 let get_used_primitives () =
-  Hashtbl.fold (fun path _ acc -> path :: acc) used_primitives []
+  Hashtbl.fold (fun addr _ acc -> addr :: acc) used_primitives []
 
 let gen_array_kind =
   if Config.flat_float_array then Pgenarray else Paddrarray
@@ -613,7 +613,10 @@ let lambda_of_loc kind loc =
   | Loc_FILE -> Lconst (Const_immstring file)
   | Loc_MODULE ->
     let filename = Filename.basename file in
-    let name = Env.get_unit_name () in
+    let name =
+      Compilation_unit.
+        (Name.to_string
+           (name (Persistent_env.Current_unit.get_exn ()))) in
     let module_name = if name = "" then "//"^filename^"//" else name in
     Lconst (Const_immstring module_name)
   | Loc_LOC ->

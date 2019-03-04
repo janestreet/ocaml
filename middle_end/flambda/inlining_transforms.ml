@@ -24,7 +24,7 @@ module A = Simple_value_approx
 
 let new_var name =
   Variable.create name
-    ~current_compilation_unit:(Compilation_unit.get_current_exn ())
+    ~current_compilation_unit:(Persistent_env.Current_unit.get_exn ())
 
 (** Fold over all variables bound by the given closure, which is bound to the
     variable [lhs_of_application], and corresponds to the given

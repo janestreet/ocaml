@@ -26,16 +26,16 @@ module DC = Dynlink_common
 module DT = Dynlink_types
 
 type global_map = {
-  name : string;
+  name : Compilation_unit.Name.t;
   crc_intf : Digest.t option;
   crc_impl : Digest.t option;
-  syms : string list
+  syms : Compilation_unit.Name.t list
 }
 
 module Native = struct
   type handle
 
-  external ndl_open : string -> bool -> handle * Cmxs_format.dynheader
+  external ndl_open : string -> bool -> handle * Cmxs_format.Dynheader_info.t
     = "caml_natdynlink_open"
   external ndl_run : handle -> string -> unit = "caml_natdynlink_run"
   external ndl_getmap : unit -> global_map list = "caml_natdynlink_getmap"
@@ -43,15 +43,34 @@ module Native = struct
   external ndl_loadsym : string -> Obj.t = "caml_natdynlink_loadsym"
 
   module Unit_header = struct
-    type t = Cmxs_format.dynunit
+    module CU = Compilation_unit
+    module BCU = Backend_compilation_unit
+    module DU = Cmxs_format.Dynunit_info
 
-    let name (t : t) = t.dynu_name
-    let crc (t : t) = Some t.dynu_crc
+    type t = DU.t
 
-    let interface_imports (t : t) = t.dynu_imports_cmi
-    let implementation_imports (t : t) = t.dynu_imports_cmx
+    (* CR-someday mshinwell: Change the whole dynlink library to use
+       [CU.Name], or maybe a new type, which could also be used
+       elsewhere in the compiler (superceding type [modname]). *)
 
-    let defined_symbols (t : t) = t.dynu_defines
+    let name t =
+      CU.name (DU.unit t)
+
+    let crc t = Some (DU.crc t)
+
+    let interface_imports t =
+      CU.Map.bindings (DU.imports_cmi t)
+
+    let implementation_imports t =
+      List.map (fun (unit, crc_opt) ->
+          CU.Name.to_string (CU.name unit), crc_opt)
+        (CU.Map.bindings (DU.imports_cmx t))
+
+    let defined_symbols t =
+      List.map (fun unit ->
+          BCU.name_for_backend_sym (BCU.compilation_unit unit))
+        (DU.defines t)
+
     let unsafe_module _t = false
   end
 
@@ -71,7 +90,8 @@ module Native = struct
           | None -> None
           | Some _ as crco -> Some (crco, DT.Check_inited !rank)
         in
-        f acc ~comp_unit:name ~interface:crc_intf
+        let unit = Compilation_unit.create name in
+        f acc ~comp_unit:unit ~interface:crc_intf
             ~implementation ~defined_symbols:syms)
       init
       (ndl_getmap ())
@@ -90,10 +110,11 @@ module Native = struct
       try ndl_open filename (not priv)
       with exn -> raise (DT.Error (Cannot_open_dynamic_library exn))
     in
-    if header.dynu_magic <> Config.cmxs_magic_number then begin
+    if Cmxs_format.Dynheader_info.magic header <> Config.cmxs_magic_number
+    then begin
       raise (DT.Error (Not_a_bytecode_file filename))
     end;
-    handle, header.dynu_units
+    handle, Cmxs_format.Dynheader_info.units header
 
   let unsafe_get_global_value ~bytecode_or_asm_symbol =
     match ndl_loadsym bytecode_or_asm_symbol with

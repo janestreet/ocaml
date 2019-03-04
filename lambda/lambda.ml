@@ -395,6 +395,10 @@ and lambda_event_kind =
   | Lev_pseudo
   | Lev_module_definition of Ident.t
 
+type pack_member =
+    PM_intf of Ident.t
+  | PM_impl of Ident.t * Compilation_unit.t list * bool
+
 type program =
   { module_ident : Ident.t;
     main_module_block_size : int;
@@ -687,12 +691,17 @@ let rec patch_guarded patch = function
       Levent (patch_guarded patch lam, ev)
   | _ -> fatal_error "Lambda.patch_guarded"
 
+
 (* Translate an access path *)
 
 let rec transl_address loc = function
   | Env.Aident id ->
-      if Ident.global id
-      then Lprim(Pgetglobal id, [], loc)
+      if Ident.global id then
+        let _, name =
+          Compilation_unit.Prefix.extract_prefix (Ident.name id) in
+        if Env.is_imported_from_functorized_pack name then
+          Lvar (Env.functorized_pack_component_id name)
+        else Lprim(Pgetglobal id, [], loc)
       else Lvar id
   | Env.Adot(addr, pos) ->
       Lprim(Pfield pos, [transl_address loc addr], loc)

@@ -20,7 +20,7 @@ open! Int_replace_polymorphic_compare
 let name_expr ~name (named : Flambda.named) : Flambda.t =
   let var =
     Variable.create
-      ~current_compilation_unit:(Compilation_unit.get_current_exn ())
+      ~current_compilation_unit:(Persistent_env.Current_unit.get_exn ())
       name
   in
   Flambda.create_let var named (Var var)
@@ -28,7 +28,7 @@ let name_expr ~name (named : Flambda.named) : Flambda.t =
 let name_expr_from_var ~var (named : Flambda.named) : Flambda.t =
   let var =
     Variable.rename
-      ~current_compilation_unit:(Compilation_unit.get_current_exn ())
+      ~current_compilation_unit:(Persistent_env.Current_unit.get_exn ())
       var
   in
   Flambda.create_let var named (Var var)
@@ -366,7 +366,7 @@ let make_closure_declaration
         sb)
       Variable.Map.empty
   in
-  let compilation_unit = Compilation_unit.get_current_exn () in
+  let compilation_unit = Persistent_env.Current_unit.get_exn () in
   let set_of_closures_var =
     Variable.create Internal_variable_names.set_of_closures
       ~current_compilation_unit:compilation_unit
@@ -812,12 +812,12 @@ module Switch_storer = Switch.Store (struct
 end)
 
 let fun_vars_referenced_in_decls
-      (function_decls : Flambda.function_declarations) ~closure_symbol =
+      (function_decls : Flambda.function_declarations) =
   let fun_vars = Variable.Map.keys function_decls.funs in
   let symbols_to_fun_vars =
     Variable.Set.fold (fun fun_var symbols_to_fun_vars ->
         let closure_id = Closure_id.wrap fun_var in
-        let symbol = closure_symbol closure_id in
+        let symbol = Symbol.for_lifted_closure closure_id in
         Symbol.Map.add symbol fun_var symbols_to_fun_vars)
       fun_vars
       Symbol.Map.empty
@@ -840,9 +840,9 @@ let fun_vars_referenced_in_decls
     function_decls.funs
 
 let closures_required_by_entry_point ~(entry_point : Closure_id.t)
-      ~closure_symbol (function_decls : Flambda.function_declarations) =
+      (function_decls : Flambda.function_declarations) =
   let dependencies =
-    fun_vars_referenced_in_decls function_decls ~closure_symbol
+    fun_vars_referenced_in_decls function_decls
   in
   let set = ref Variable.Set.empty in
   let queue = Queue.create () in

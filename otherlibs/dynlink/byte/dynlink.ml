@@ -58,7 +58,7 @@ module Bytecode = struct
 
   type handle = Stdlib.in_channel * filename * Digest.t
 
-  let default_crcs = ref []
+  let default_crcs = ref ([] : Compilation_unit.crcs)
   let default_global_map = ref Symtable.empty_global_map
 
   let init () =
@@ -77,7 +77,9 @@ module Bytecode = struct
 
   let fold_initial_units ~init ~f =
     List.fold_left (fun acc (comp_unit, interface) ->
-        let id = Ident.create_persistent comp_unit in
+        let id =
+          Ident.create_persistent
+            Compilation_unit.(Name.to_string (name comp_unit)) in
         let defined =
           Symtable.is_defined_in_global_map !default_global_map id
         in
@@ -86,7 +88,7 @@ module Bytecode = struct
           else None
         in
         let defined_symbols =
-          if defined then [comp_unit]
+          if defined then [Compilation_unit.name comp_unit]
           else []
         in
         f acc ~comp_unit ~interface ~implementation ~defined_symbols)
@@ -122,9 +124,11 @@ module Bytecode = struct
     end;
     (* PR#5215: identify this code fragment by
        digest of file contents + unit name.
-       Unit name is needed for .cma files, which produce several code
+       Compunit name is needed for .cma files, which produce several code
        fragments. *)
-    let digest = Digest.string (file_digest ^ compunit.cu_name) in
+    let digest =
+      Digest.string
+        (file_digest ^ Compilation_unit.Name.to_string compunit.cu_name) in
     let events =
       if compunit.cu_debug = 0 then [| |]
       else begin

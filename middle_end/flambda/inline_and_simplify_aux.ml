@@ -119,9 +119,8 @@ module Env = struct
         Mutable_variable.Map.add mut_var approx t.approx_mutable;
     }
 
-  let really_import_approx t =
-    let module Backend = (val (t.backend) : Backend_intf.S) in
-    Backend.really_import_approx
+  let really_import_approx _t =
+    Import_approx.really_import_approx
 
   let really_import_approx_with_scope t (scope, approx) =
     scope, really_import_approx t approx
@@ -146,15 +145,13 @@ module Env = struct
   let find_or_load_symbol t symbol =
     match find_symbol_exn t symbol with
     | exception Not_found ->
-      if Compilation_unit.equal
-          (Compilation_unit.get_current_exn ())
-          (Symbol.compilation_unit symbol)
+      if Symbol.in_compilation_unit symbol
+          (Persistent_env.Current_unit.get_exn ())
       then
         Misc.fatal_errorf "Symbol %a from the current compilation unit is \
             unbound.  Maybe there is a missing [Let_symbol] or similar?"
           Symbol.print symbol;
-      let module Backend = (val (t.backend) : Backend_intf.S) in
-      Backend.import_symbol symbol
+      Import_approx.import_symbol symbol
     | approx -> approx
 
   let add_projection t ~projection ~bound_to =

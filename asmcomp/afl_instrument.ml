@@ -16,12 +16,13 @@
 
 open Lambda
 open Cmm
+open Backend_sym.Names
 
 module V = Backend_var
 module VP = Backend_var.With_provenance
 
-let afl_area_ptr dbg = Cconst_symbol ("caml_afl_area_ptr", dbg)
-let afl_prev_loc dbg = Cconst_symbol ("caml_afl_prev_loc", dbg)
+let afl_area_ptr dbg = Cconst_symbol (caml_afl_area_ptr, dbg)
+let afl_prev_loc dbg = Cconst_symbol (caml_afl_prev_loc, dbg)
 let afl_map_size = 1 lsl 16
 
 let rec with_afl_logging b dbg =
@@ -103,7 +104,7 @@ let instrument_initialiser c dbg =
      calls *)
   with_afl_logging
     (Csequence
-       (Cop (Cextcall ("caml_setup_afl", typ_int, false, None),
+       (Cop (Cextcall (caml_setup_afl, typ_int, false, None),
              [Cconst_int (0, dbg ())],
              dbg ()),
         c))

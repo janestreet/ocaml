@@ -56,7 +56,8 @@ let rec structured_constant ppf = function
         List.iter (fprintf ppf "@ %a" one_fun) in
       let sconsts ppf scl =
         List.iter (fun sc -> fprintf ppf "@ %a" uconstant sc) scl in
-      fprintf ppf "@[<2>(const_closure%a %s@ %a)@]" funs clos sym sconsts fv
+      fprintf ppf "@[<2>(const_closure%a %a@ %a)@]"
+        funs clos Symbol.print sym sconsts fv
 
 and one_fun ppf f =
   let idents ppf =
@@ -67,8 +68,9 @@ and one_fun ppf f =
            Printlambda.value_kind k
       )
   in
-  fprintf ppf "(fun@ %s%s@ %d@ @[<2>%a@]@ @[<2>%a@])"
-    f.label (value_kind f.return) f.arity idents f.params lam f.body
+  fprintf ppf "(fun@ %a%s@ %d@ @[<2>%a@]@ @[<2>%a@])"
+    Symbol.print f.label (value_kind f.return) f.arity idents f.params
+      lam f.body
 
 and phantom_defining_expr ppf = function
   | Uphantom_const const -> uconstant ppf const
@@ -78,7 +80,7 @@ and phantom_defining_expr ppf = function
   | Uphantom_read_field { var; field; } ->
     Format.fprintf ppf "%a[%d]" Backend_var.print var field
   | Uphantom_read_symbol_field { sym; field; } ->
-    Format.fprintf ppf "%s[%d]" sym field
+    Format.fprintf ppf "%a[%d]" Symbol.print sym field
   | Uphantom_block { tag; fields; } ->
     Format.fprintf ppf "[%d: " tag;
     List.iter (fun field ->
@@ -92,8 +94,8 @@ and phantom_defining_expr_opt ppf = function
 
 and uconstant ppf = function
   | Uconst_ref (s, Some c) ->
-      fprintf ppf "%S=%a" s structured_constant c
-  | Uconst_ref (s, None) -> fprintf ppf "%S"s
+      fprintf ppf "%a=%a" Symbol.print s structured_constant c
+  | Uconst_ref (s, None) -> Symbol.print ppf s
   | Uconst_int i -> fprintf ppf "%i" i
   | Uconst_ptr i -> fprintf ppf "%ia" i
 
@@ -104,7 +106,7 @@ and lam ppf = function
   | Udirect_apply(f, largs, _) ->
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
-      fprintf ppf "@[<2>(apply*@ %s %a)@]" f lams largs
+      fprintf ppf "@[<2>(apply*@ %a %a)@]" Symbol.print f lams largs
   | Ugeneric_apply(lfun, largs, _) ->
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
@@ -248,8 +250,8 @@ let clambda ppf ulam =
 
 let rec approx ppf = function
     Value_closure(fundesc, a) ->
-      Format.fprintf ppf "@[<2>function %s@ arity %i"
-        fundesc.fun_label fundesc.fun_arity;
+      Format.fprintf ppf "@[<2>function %a@ arity %i"
+        Symbol.print fundesc.fun_label fundesc.fun_arity;
       if fundesc.fun_closed then begin
         Format.fprintf ppf "@ (closed)"
       end;
@@ -269,4 +271,4 @@ let rec approx ppf = function
   | Value_const c ->
       fprintf ppf "@[const(%a)@]" uconstant c
   | Value_global_field (s, i) ->
-      fprintf ppf "@[global(%s,%i)@]" s i
+      fprintf ppf "@[global(%a,%i)@]" Symbol.print s i

@@ -442,10 +442,10 @@ module Make (S : Compute_ranges_intf.S_functor) = struct
         KS.diff should_be_open currently_open_subranges
       in
       if not (KS.is_empty not_open_but_should_be) then begin
-        Misc.fatal_errorf "%s: ranges for %a are not open across the following \
+        Misc.fatal_errorf "%a: ranges for %a are not open across the following \
             instruction:\n%a\navailable_across:@ %a\n\
             currently_open_subranges: %a"
-          fundecl.fun_name
+          Backend_sym.print fundecl.fun_name
           KS.print not_open_but_should_be
           Printlinear.instr { insn with L.next = L.end_instr; }
           KS.print should_be_open

@@ -41,8 +41,11 @@ let create_predef s =
   incr predefstamp;
   Predef { name = s; stamp = !predefstamp }
 
-let create_persistent s =
-  Global s
+let create_persistent ?prefix s =
+  match prefix with
+    None | Some [] -> Global s
+  | Some prefix ->
+      Global (Compilation_unit.Prefix.for_address prefix ^ "." ^ s)
 
 let name = function
   | Local { name; _ }

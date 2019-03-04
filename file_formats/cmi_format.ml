@@ -20,6 +20,8 @@ type pers_flags =
   | Alerts of alerts
   | Opaque
   | Unsafe_string
+  | Pack of Compilation_unit.Prefix.t
+  | Parameter_of of Compilation_unit.t
 
 type error =
   | Not_an_interface of filepath
@@ -29,19 +31,19 @@ type error =
 exception Error of error
 
 type cmi_infos = {
-    cmi_name : Misc.modname;
-    cmi_sign : Types.signature_item list;
-    cmi_crcs : crcs;
+    cmi_name : Compilation_unit.Name.t;
+    cmi_type : Types.compilation_unit;
+    cmi_crcs : Compilation_unit.crcs;
     cmi_flags : pers_flags list;
 }
 
 let input_cmi ic =
-  let (name, sign) = input_value ic in
+  let (name, mty) = input_value ic in
   let crcs = input_value ic in
   let flags = input_value ic in
   {
       cmi_name = name;
-      cmi_sign = sign;
+      cmi_type = mty;
       cmi_crcs = crcs;
       cmi_flags = flags;
     }
@@ -78,10 +80,17 @@ let read_cmi filename =
 let output_cmi filename oc cmi =
 (* beware: the provided signature must have been substituted for saving *)
   output_string oc Config.cmi_magic_number;
-  output_value oc (cmi.cmi_name, cmi.cmi_sign);
+  output_value oc (cmi.cmi_name, cmi.cmi_type);
   flush oc;
   let crc = Digest.file filename in
-  let crcs = (cmi.cmi_name, Some crc) :: cmi.cmi_crcs in
+  let for_pack_prefix =
+    match List.find_opt (function Pack _ -> true | _ -> false) cmi.cmi_flags with
+      Some (Pack p) -> p
+    | _ -> []
+  in
+  let crcs =
+    (Compilation_unit.create ~for_pack_prefix cmi.cmi_name, Some crc)
+    :: cmi.cmi_crcs in
   output_value oc crcs;
   output_value oc cmi.cmi_flags;
   crc

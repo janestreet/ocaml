@@ -25,13 +25,13 @@ type constant =
   | Const_closure of is_global * Clambda.ufunction list * Clambda.uconstant list
   | Const_table of is_global * Cmm.data_item list
 
-val add_constant : Misc.Stdlib.String.t -> constant -> unit
+val add_constant : Backend_sym.t -> constant -> unit
 
 val add_data_items : Cmm.data_item list -> unit
 
 val add_function : Clambda.ufunction -> unit
 
-val get_and_clear_constants : unit -> constant Misc.Stdlib.String.Map.t
+val get_and_clear_constants : unit -> constant Backend_sym.Map.t
 
 val get_and_clear_data_items : unit -> Cmm.data_item list
 
@@ -41,5 +41,5 @@ val no_more_functions : unit -> bool
 
 val set_structured_constants : Clambda.preallocated_constant list -> unit
 
-(* Also looks up using Compilenv.structured_constant_of_symbol *)
-val structured_constant_of_sym : string -> Clambda.ustructured_constant option
+(* Also looks up using Compilation_state.structured_constant_of_symbol *)
+val structured_constant_of_sym : Backend_sym.t -> Clambda.ustructured_constant option

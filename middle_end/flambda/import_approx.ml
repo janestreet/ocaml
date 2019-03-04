@@ -16,7 +16,11 @@
 
 [@@@ocaml.warning "+a-4-9-30-40-41-42"]
 
+(* CR-soon mshinwell: Can we remove most of this rewriting?  (Includes
+   dealing with Invariant_params etc.) *)
+
 module A = Simple_value_approx
+module CU = Compilation_unit
 
 let import_set_of_closures =
   let import_function_declarations (clos : A.function_declarations)
@@ -26,7 +30,7 @@ let import_set_of_closures =
     let sym_to_fun_var_map (clos : A.function_declarations) =
       Variable.Map.fold (fun fun_var _ acc ->
            let closure_id = Closure_id.wrap fun_var in
-           let sym = Compilenv.closure_symbol closure_id in
+           let sym = Symbol.for_lifted_closure closure_id in
            Symbol.Map.add sym fun_var acc)
         clos.funs Symbol.Map.empty
     in
@@ -49,7 +53,7 @@ let import_set_of_closures =
   in
   let aux set_of_closures_id =
     match
-      Compilenv.approx_for_global
+      Compilation_state.Flambda_only.export_info_for_unit
         (Set_of_closures_id.get_compilation_unit set_of_closures_id)
     with
     | None -> None
@@ -63,7 +67,9 @@ let import_set_of_closures =
       with Not_found ->
         Misc.fatal_error "Cannot find set of closures"
   in
-  Set_of_closures_id.Tbl.memoize Compilenv.imported_sets_of_closures_table aux
+  Set_of_closures_id.Tbl.memoize
+    Compilation_state.Flambda_only.imported_sets_of_closures_table
+    aux
 
 let rec import_ex ex =
   let import_value_set_of_closures ~set_of_closures_id ~bound_vars ~free_vars
@@ -117,7 +123,9 @@ let rec import_ex ex =
         ~direct_call_surrogates:Closure_id.Map.empty)
   in
   let compilation_unit = Export_id.get_compilation_unit ex in
-  match Compilenv.approx_for_global compilation_unit with
+  match
+    Compilation_state.Flambda_only.export_info_for_unit compilation_unit
+  with
   | None -> A.value_unknown Other
   | Some ex_info ->
     match Export_info.find_description ex_info ex with
@@ -186,21 +194,18 @@ and import_approx (ap : Export_info.approx) =
   | Value_symbol sym -> A.value_symbol sym
 
 let import_symbol sym =
-  if Compilenv.is_predefined_exception sym then
-    A.value_unknown Other
-  else begin
-    let compilation_unit = Symbol.compilation_unit sym in
-    match Compilenv.approx_for_global compilation_unit with
+  match Symbol.compilation_unit sym with
+  | Predef -> A.value_unknown Other
+  | Compilation_unit comp_unit ->
+    match Compilation_state.Flambda_only.export_info_for_unit comp_unit with
     | None -> A.value_unresolved (Symbol sym)
     | Some export_info ->
       match Symbol.Map.find sym export_info.symbol_id with
       | approx -> A.augment_with_symbol (import_ex approx) sym
       | exception Not_found ->
-        Misc.fatal_errorf
-          "Compilation unit = %a Cannot find symbol %a"
-          Compilation_unit.print compilation_unit
+        Misc.fatal_errorf "Compilation unit %a: cannot find symbol %a"
+          CU.print comp_unit
           Symbol.print sym
-  end
 
 (* Note for code reviewers: Observe that [really_import] iterates until
    the approximation description is fully resolved (or a necessary .cmx

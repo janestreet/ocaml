@@ -1,0 +1,8 @@
+File "use_pack.ml", line 1:
+Error: inside_pack.cmi contains the description for a unit [Inside_pack] with
+       a `-for-pack' prefix of [Pack.Sub_pack]; this cannot be used because
+       the current unit is being compiled without a `-for-pack' prefix
+File "use_pack.ml", line 1:
+Error: inside_pack.cmi contains the description for a unit [Inside_pack] with
+       a `-for-pack' prefix of [Pack.Sub_pack]; this cannot be used because
+       the current unit has a `-for-pack' prefix of [Pack.Another_sub_pack]

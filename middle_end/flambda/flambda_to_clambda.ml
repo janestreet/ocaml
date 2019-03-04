@@ -38,7 +38,7 @@ type t = {
 
 let get_fun_offset t closure_id =
   let fun_offset_table =
-    if Closure_id.in_compilation_unit closure_id (Compilenv.current_unit ())
+    if Closure_id.in_compilation_unit closure_id (Persistent_env.Current_unit.get_exn ())
     then
       t.current_unit.fun_offset_table
     else
@@ -52,7 +52,7 @@ let get_fun_offset t closure_id =
 let get_fv_offset t var_within_closure =
   let fv_offset_table =
     if Var_within_closure.in_compilation_unit var_within_closure
-        (Compilenv.current_unit ())
+        (Persistent_env.Current_unit.get_exn ())
     then t.current_unit.fv_offset_table
     else t.imported_units.fv_offset_table
   in
@@ -81,13 +81,9 @@ let check_closure t ulam named : Clambda.ulambda =
         ~arity:2 ~alloc:false
     in
     let str = Format.asprintf "%a" Flambda.print_named named in
-    let sym = Compilenv.new_const_symbol () in
-    let sym' =
-      Symbol.of_global_linkage (Compilation_unit.get_current_exn ())
-        (Linkage_name.create sym)
-    in
+    let sym = Symbol.for_lifted_anonymous_constant () in
     t.constants_for_instrumentation <-
-      Symbol.Map.add sym' (Clambda.Uconst_string str)
+      Symbol.Map.add sym (Clambda.Uconst_string str)
         t.constants_for_instrumentation;
     Uprim (Pccall desc,
            [ulam; Clambda.Uconst (Uconst_ref (sym, None))],
@@ -105,13 +101,9 @@ let check_field t ulam pos named_opt : Clambda.ulambda =
       | None -> "<none>"
       | Some named -> Format.asprintf "%a" Flambda.print_named named
     in
-    let sym = Compilenv.new_const_symbol () in
-    let sym' =
-      Symbol.of_global_linkage (Compilation_unit.get_current_exn ())
-        (Linkage_name.create sym)
-    in
+    let sym = Symbol.for_lifted_anonymous_constant () in
     t.constants_for_instrumentation <-
-      Symbol.Map.add sym' (Clambda.Uconst_string str)
+      Symbol.Map.add sym (Clambda.Uconst_string str)
         t.constants_for_instrumentation;
     Uprim (Pccall desc, [ulam; Clambda.Uconst (Uconst_int pos);
         Clambda.Uconst (Uconst_ref (sym, None))],
@@ -220,8 +212,7 @@ let to_uconst_symbol env symbol : Clambda.ustructured_constant option =
   | Some _ -> None
 
 let to_clambda_symbol' env sym : Clambda.uconstant =
-  let lbl = Linkage_name.to_string (Symbol.label sym) in
-  Uconst_ref (lbl, to_uconst_symbol env sym)
+  Uconst_ref (sym, to_uconst_symbol env sym)
 
 let to_clambda_symbol env sym : Clambda.ulambda =
   Uconst (to_clambda_symbol' env sym)
@@ -449,7 +440,7 @@ and to_clambda_switch t env cases num_keys default =
 
 and to_clambda_direct_apply t func args direct_func dbg env : Clambda.ulambda =
   let closed = is_function_constant t direct_func in
-  let label = Compilenv.function_label direct_func in
+  let sym = Symbol.for_function direct_func in
   let uargs =
     let uargs = subst_vars env args in
     (* Remove the closure argument if the closure is closed.  (Note that the
@@ -457,7 +448,7 @@ and to_clambda_direct_apply t func args direct_func dbg env : Clambda.ulambda =
        dropping any side effects.) *)
     if closed then uargs else uargs @ [subst_var env func]
   in
-  Udirect_apply (label, uargs, dbg)
+  Udirect_apply (sym, uargs, dbg)
 
 (* Describe how to build a runtime closure block that corresponds to the
    given Flambda set of closures.
@@ -539,7 +530,7 @@ and to_clambda_set_of_closures t env
           env, id :: params)
         function_decl.params (env, [])
     in
-    { label = Compilenv.function_label closure_id;
+    { label = Symbol.for_function closure_id;
       arity = Flambda_utils.function_arity function_decl;
       params =
         List.map
@@ -572,7 +563,7 @@ and to_clambda_closed_set_of_closures t env symbol
     let env =
       List.fold_left (fun env (var, _) ->
           let closure_id = Closure_id.wrap var in
-          let symbol = Compilenv.closure_symbol closure_id in
+          let symbol = Symbol.for_lifted_closure closure_id in
           Env.add_subst env var (to_clambda_symbol env symbol))
         (Env.keep_only_symbols env)
         functions
@@ -587,7 +578,7 @@ and to_clambda_closed_set_of_closures t env symbol
       Un_anf.apply ~ppf_dump:t.ppf_dump ~what:symbol
         (to_clambda t env_body function_decl.body)
     in
-    { label = Compilenv.function_label (Closure_id.wrap id);
+    { label = Symbol.for_function (Closure_id.wrap id);
       arity = Flambda_utils.function_arity function_decl;
       params = List.map (fun var -> VP.create var, Lambda.Pgenval) params;
       return = Lambda.Pgenval;
@@ -597,8 +588,7 @@ and to_clambda_closed_set_of_closures t env symbol
     }
   in
   let ufunct = List.map to_clambda_function functions in
-  let closure_lbl = Linkage_name.to_string (Symbol.label symbol) in
-  Uconst_closure (ufunct, closure_lbl, [])
+  Uconst_closure (ufunct, symbol, [])
 
 let to_clambda_initialize_symbol t env symbol fields : Clambda.ulambda =
   let fields =
@@ -685,13 +675,12 @@ let to_clambda_program t env constants (program : Flambda.program) =
                 in
                 Some (Clambda.Uconst_field_int n)
             | Some (Flambda.Symbol sym) ->
-                let lbl = Linkage_name.to_string (Symbol.label sym) in
-                Some (Clambda.Uconst_field_ref lbl))
+                Some (Clambda.Uconst_field_ref sym))
           fields
       in
       let e1 = to_clambda_initialize_symbol t env symbol init_fields in
       let preallocated_block : Clambda.preallocated_block =
-        { symbol = Linkage_name.to_string (Symbol.label symbol);
+        { symbol;
           exported = true;
           tag = Tag.to_int tag;
           fields = constant_fields;
@@ -732,7 +721,7 @@ let convert ~ppf_dump (program, exported_transient) : result =
     }
   in
   let imported_units =
-    let imported = Compilenv.approx_env () in
+    let imported = Compilation_state.Flambda_only.merged_export_info () in
     let closures =
       Set_of_closures_id.Map.fold
         (fun (_ : Set_of_closures_id.t) fun_decls acc ->

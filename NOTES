@@ -1,0 +1,79 @@
+Advantages:
+
+- Coherent path from Symbol.t -> Backend_sym.t -> Asm_symbol.t
+  with details such as OCaml-specific mangling and target-specific mangling
+  kept separate.
+
+- The new symbol types (and in due course the new label types) will make
+  amd64/emit.mlp in particular much easier to understand in these areas.
+
+- Many occurrences of type "string" removed.  Various data structures improved
+  so that they cannot represent cases that should be unrepresentable (e.g.
+  sets/maps instead of lists) -- although more checks could be done when
+  adding to such data structures.
+
+- Various checks are possible on symbols to make sure that we're not
+  emitting symbol references in forms that we haven't thought about.
+
+- The new version of Compilenv (Compilation_state / Linking_state) are
+  more straightforward, with more discoverable interfaces, than previously.
+
+- Various tangled-up code introduced along with Flambda has been cleaned up.
+
+- Rewriting upon creating packs in Flambda is now not required.  This appears
+  to open the door, in conjunction with some (hopefully fairly minor)
+  future changes, to not having to rewrite export info at all when reading
+  .cmx files.  This could give a decent speedup.
+
+- Cmx_format is now immutable.
+
+- Many comments written or improved.
+
+- More Flambda and Closure specific code is in the Flambda and Closure files
+  rather than e.g. in Asmgen.
+
+- Many fewer files in asmcomp/.  The middle end now is actually in the
+  middle_end/ directory.
+
+- Clean separation between ocamlmiddleend.cmxa and the backend.  This has
+  simplified the tools/ makefile and should cause the build to be more robust.
+
+- All "file format modules" are together in one directory.
+
+- The distinction between CU.Name.t and CU.t crystallises the fact that we
+  don't know the -for-pack prefix when building .cmi files or resolving
+  arbitrary [Ident.t]s.
+
+- Have as a side-effect removed the strange situation of predefined idents
+  being in the imports lists in .cmx files.
+
+- Stronger types help to prevent dubious practices such as going back via
+  previous intermediate languages when translating some particular
+  language (e.g. Cmm).  They also catch confusion where (e.g. in asmlink.ml)
+  a filename was being provided as a compilation unit name rather than using
+  the unit name from UI.t.
+
+- Clarified subtle things such as the fact that [defines] must be in
+  initialisation order.
+
+- Step on the road towards namespace support.
+
+- Various unusual and/or unsatisfactory formatting has been tidied up along the
+  way.
+
+- Catches cases such as in the lib-dynlink-native tests where module paths
+  were being accepted without the correct pack prefix.
+
+- Local / global symbol annotations - Fu Yong's patch does the analysis.
+
+Things this GPR does not do:
+
+- Update the x86 DSL files to use Asm_symbol.  This will be done as part of the
+  Asm_directives patch.
+
+- Stop using Backend_var in Clambda and use Variable instead.  (It is now
+  clear that Backend_var should start at Cmm, like Backend_sym.)
+
+- Replacing [modname] (and other places e.g. dynlink that use [string])
+  with a new type, in its own module.  This could potentially supercede
+  [Compilation_unit.Name.t].

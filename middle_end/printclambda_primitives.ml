@@ -56,7 +56,7 @@ let primitive ppf (prim:Clambda_primitives.primitive) =
   let open Clambda_primitives in
   match prim with
   | Pread_symbol sym ->
-      fprintf ppf "read_symbol %s" sym
+      fprintf ppf "read_symbol %a" Symbol.print sym
   | Pmakeblock(tag, Immutable, shape) ->
       fprintf ppf "makeblock %i%a" tag Printlambda.block_shape shape
   | Pmakeblock(tag, Mutable, shape) ->

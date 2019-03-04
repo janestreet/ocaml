@@ -13,7 +13,7 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(* Build libraries of .cmx files *)
+(** Build libraries of .cmx files *)
 
 open Format
 
