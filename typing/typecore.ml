@@ -4437,6 +4437,7 @@ and type_cases ?exception_allowed ?in_function env ty_arg ty_res partial_flag
 (* Typing of let bindings *)
 
 and type_let
+    ?(toplevel = false)
     ?(check = fun s -> Warnings.Unused_var s)
     ?(check_strict = fun s -> Warnings.Unused_var_strict s)
     existential_context
@@ -4500,12 +4501,14 @@ and type_let
   let pat_list =
     if !Clflags.principal then begin
       end_def ();
-      List.map
-        (fun pat ->
-          iter_pattern (fun pat -> generalize_structure pat.pat_type) pat;
-          {pat with pat_type = instance pat.pat_type})
-        pat_list
-    end else pat_list in
+      iter_pattern_variables_type generalize_structure pvs;
+      List.map (fun pat ->
+        generalize_structure pat.pat_type;
+        {pat with pat_type = instance pat.pat_type}
+      ) pat_list
+    end else
+      pat_list
+  in
   (* Only bind pattern variables after generalizing *)
   List.iter (fun f -> f()) force;
   let sexp_is_fun { pvb_expr = sexp; _ } =
@@ -4647,15 +4650,16 @@ and type_let
     )
     pat_list
     (List.map2 (fun (attrs, _) e -> attrs, e) spatl exp_list);
+  let pvs = List.map (fun pv -> { pv with pv_type = instance pv.pv_type}) pvs in
   end_def();
   List.iter2
     (fun pat exp ->
        if not (is_nonexpansive exp) then
-         iter_pattern (fun pat -> generalize_expansive env pat.pat_type) pat)
+         generalize_expansive env pat.pat_type)
     pat_list exp_list;
-  List.iter
-    (fun pat -> iter_pattern (fun pat -> generalize pat.pat_type) pat)
-    pat_list;
+  iter_pattern_variables_type generalize pvs;
+  if toplevel then
+    List.iter (fun exp -> generalize exp.exp_type) exp_list;
   let l = List.combine pat_list exp_list in
   let l =
     List.map2
@@ -4726,10 +4730,11 @@ and type_andops env sarg sands expected_ty =
 
 (* Typing of toplevel bindings *)
 
-let type_binding env rec_flag spat_sexp_list scope =
+let type_binding ~toplevel env rec_flag spat_sexp_list scope =
   Typetexp.reset_type_variables();
   let (pat_exp_list, new_env, _unpacks) =
     type_let
+      ~toplevel
       ~check:(fun s -> Warnings.Unused_value_declaration s)
       ~check_strict:(fun s -> Warnings.Unused_value_declaration s)
       At_toplevel

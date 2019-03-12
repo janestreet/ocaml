@@ -2028,7 +2028,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
               Some (Annot.Idef {scope with Location.loc_start = start})
         in
         let (defs, newenv) =
-          Typecore.type_binding env rec_flag sdefs scope in
+          Typecore.type_binding ~toplevel env rec_flag sdefs scope in
         let () = if rec_flag = Recursive then
           Typecore.check_recursive_bindings env defs
         in

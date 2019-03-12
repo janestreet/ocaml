@@ -66,7 +66,7 @@ type existential_restriction =
   | In_self_pattern (** or in self pattern *)
 
 val type_binding:
-        Env.t -> rec_flag ->
+        toplevel:bool -> Env.t -> rec_flag ->
           Parsetree.value_binding list ->
           Annot.ident option ->
           Typedtree.value_binding list * Env.t
