@@ -28,8 +28,8 @@ let scrape_ty env ty =
       begin match Env.find_type p env with
       | {type_unboxed = {unboxed = true; _}; _} ->
         begin match Typedecl.get_unboxed_type_representation env ty with
-        | None -> ty
-        | Some ty2 -> ty2
+        | Typedecl_unboxed.This ty2 -> ty2
+        | _ -> ty
         end
       | _ -> ty
       | exception Not_found -> ty

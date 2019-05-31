@@ -136,7 +136,7 @@ type type_mismatch =
   | Field_missing of bool * Ident.t
   | Record_representation of bool   (* true means second one is unboxed float *)
   | Unboxed_representation of bool  (* true means second one is unboxed *)
-  | Immediate
+  | Immediate of immediacy * immediacy
 
 let report_type_mismatch0 first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
@@ -167,7 +167,14 @@ let report_type_mismatch0 first second decl ppf err =
       pr "Their internal representations differ:@ %s %s %s"
          (if b then second else first) decl
          "uses unboxed representation"
-  | Immediate -> pr "%s is not an immediate type" first
+  | Immediate (a, b) ->
+      match a, b with
+      | Unknown, _ -> pr "%s is not an immediate type" first
+      | Always_on_64bits, _ ->
+          pr "%s is only an immediate type on 64 bit plateforms while %s \
+              is always an immediate type"
+            first second
+      | _ -> assert false
 
 let report_type_mismatch first second decl ppf err =
   if err = Manifest then () else
@@ -321,9 +328,11 @@ let type_declarations ?(equality = false) ~loc env ~mark name decl1 path decl2 =
    * must be immediate, then we error *)
   let err =
     if abstr &&
-       not decl1.type_immediate &&
-       decl2.type_immediate then
-      Some Immediate
+       more_often_immediate
+         decl2.type_immediate
+         decl1.type_immediate
+    then
+      Some (Immediate (decl1.type_immediate, decl2.type_immediate))
     else None
   in
   if err <> None then err else

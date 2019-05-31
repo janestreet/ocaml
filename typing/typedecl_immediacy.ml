@@ -20,7 +20,13 @@ type error = Bad_immediate_attribute
 exception Error of Location.t * error
 
 let marked_as_immediate decl =
-  Builtin_attributes.immediate decl.type_attributes
+  match
+    Builtin_attributes.immediate decl.type_attributes,
+    Builtin_attributes.immediate64 decl.type_attributes
+  with
+  | true, _ -> Always
+  | _, true -> Always_on_64bits
+  | false, false -> Unknown
 
 let compute_decl env tdecl =
   match (tdecl.type_kind, tdecl.type_manifest) with
@@ -29,25 +35,31 @@ let compute_decl env tdecl =
     | (Type_record ([{ld_type = arg; _}], _), _)
   when tdecl.type_unboxed.unboxed ->
     begin match Typedecl_unboxed.get_unboxed_type_representation env arg with
-    | Some argrepr -> not (Ctype.maybe_pointer_type env argrepr)
-    | None -> false
+    | Unavailable -> Unknown
+    | This argrepr -> Ctype.immediacy env argrepr
+    | Only_on_64_bits argrepr ->
+      match Ctype.immediacy env argrepr with
+      | Always -> Always_on_64bits
+      | Always_on_64bits | Unknown as x -> x
     end
   | (Type_variant (_ :: _ as cstrs), _) ->
-    not (List.exists (fun c -> c.Types.cd_args <> Types.Cstr_tuple []) cstrs)
-  | (Type_abstract, Some(typ)) ->
-    not (Ctype.maybe_pointer_type env typ)
+    if not (List.exists (fun c -> c.Types.cd_args <> Types.Cstr_tuple []) cstrs) then
+      Always
+    else
+      Unknown
+  | (Type_abstract, Some(typ)) -> Ctype.immediacy env typ
   | (Type_abstract, None) -> marked_as_immediate tdecl
-  | _ -> false
+  | _ -> Unknown
 
-let property : (bool, unit) Typedecl_properties.property =
+let property : (Types.immediacy, unit) Typedecl_properties.property =
   let open Typedecl_properties in
   let eq = (=) in
   let merge ~prop:_ ~new_prop = new_prop in
-  let default _decl = false in
+  let default _decl = Unknown in
   let compute env decl () = compute_decl env decl in
   let update_decl decl immediacy = { decl with type_immediate = immediacy } in
   let check _env _id decl () =
-    if (marked_as_immediate decl) && (not decl.type_immediate) then
+    if more_often_immediate (marked_as_immediate decl) decl.type_immediate then
       raise (Error (decl.type_loc, Bad_immediate_attribute)) in
   {
     eq;

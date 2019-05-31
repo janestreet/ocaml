@@ -1222,7 +1222,7 @@ let new_declaration expansion_scope manifest =
     type_expansion_scope = expansion_scope;
     type_loc = Location.none;
     type_attributes = [];
-    type_immediate = false;
+    type_immediate = Unknown;
     type_unboxed = unboxed_false_default_false;
   }
 
@@ -4749,13 +4749,21 @@ let same_constr env t1 t2 =
 let () =
   Env.same_constr := same_constr
 
-let maybe_pointer_type env typ =
+let is_immediate = function
+  | Unknown -> false
+  | Always -> true
+  | Always_on_64bits ->
+      (* In bytecode, we don't know at compile time whether we are
+         targeting 32 or 64 bits. *)
+      !Clflags.native_code && Sys.word_size = 64
+
+let immediacy env typ =
    match (repr typ).desc with
   | Tconstr(p, _args, _abbrev) ->
     begin try
       let type_decl = Env.find_type p env in
-      not type_decl.type_immediate
-    with Not_found -> true
+      type_decl.type_immediate
+    with Not_found -> Unknown
     (* This can happen due to e.g. missing -I options,
        causing some .cmi files to be unavailable.
        Maybe we should emit a warning. *)
@@ -4763,10 +4771,17 @@ let maybe_pointer_type env typ =
   | Tvariant row ->
       let row = Btype.row_repr row in
       (* if all labels are devoid of arguments, not a pointer *)
-      not row.row_closed
-      || List.exists
-          (function
-            | _, (Rpresent (Some _) | Reither (false, _, _, _)) -> true
-            | _ -> false)
-          row.row_fields
-  | _ -> true
+      if
+        not row.row_closed
+        || List.exists
+             (function
+               | _, (Rpresent (Some _) | Reither (false, _, _, _)) -> true
+               | _ -> false)
+             row.row_fields
+      then
+        Unknown
+      else
+        Always
+  | _ -> Unknown
+
+let maybe_pointer_type env typ = not (is_immediate (immediacy env typ))

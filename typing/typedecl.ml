@@ -113,7 +113,7 @@ let enter_type rec_flag env sdecl id =
       type_expansion_scope = Btype.lowest_level;
       type_loc = sdecl.ptype_loc;
       type_attributes = sdecl.ptype_attributes;
-      type_immediate = false;
+      type_immediate = Unknown;
       type_unboxed = unboxed_false_default_false;
     }
   in
@@ -135,7 +135,7 @@ let get_unboxed_type_representation =
 (* Determine if a type's values are represented by floats at run-time. *)
 let is_float env ty =
   match get_unboxed_type_representation env ty with
-    Some {desc = Tconstr(p, _, _); _} -> Path.same p Predef.path_float
+    This {desc = Tconstr(p, _, _); _} -> Path.same p Predef.path_float
   | _ -> false
 
 (* Determine if a type definition defines a fixed type. (PW) *)
@@ -320,21 +320,21 @@ and check_unboxed_abstract_row_field loc univ (_, field) =
    the type, given the universal parameters of the type. *)
 let rec check_unboxed_gadt_arg loc univ env ty =
   match get_unboxed_type_representation env ty with
-  | Some {desc = Tvar _; id} -> check_type_var loc univ id
-  | Some {desc = Tarrow _ | Ttuple _ | Tpackage _ | Tobject _ | Tnil
+  | This {desc = Tvar _; id} -> check_type_var loc univ id
+  | This {desc = Tarrow _ | Ttuple _ | Tpackage _ | Tobject _ | Tnil
                  | Tvariant _; _} ->
     ()
     (* A comment in [Translcore.transl_exp0] claims the above cannot be
        represented by floats. *)
-  | Some {desc = Tconstr (p, args, _); _} ->
+  | This {desc = Tconstr (p, args, _); _} ->
     let tydecl = Env.find_type p env in
     assert (not tydecl.type_unboxed.unboxed);
     if tydecl.type_kind = Type_abstract then
       List.iter (check_unboxed_abstract_arg loc univ) args
-  | Some {desc = Tfield _ | Tlink _ | Tsubst _; _} -> assert false
-  | Some {desc = Tunivar _; _} -> ()
-  | Some {desc = Tpoly (t2, _); _} -> check_unboxed_gadt_arg loc univ env t2
-  | None -> ()
+  | This {desc = Tfield _ | Tlink _ | Tsubst _; _} -> assert false
+  | This {desc = Tunivar _; _} -> ()
+  | This {desc = Tpoly (t2, _); _} -> check_unboxed_gadt_arg loc univ env t2
+  | _ -> ()
       (* This case is tricky: the argument is another (or the same) type
          in the same recursive definition. In this case we don't have to
          check because we will also check that other type for correctness. *)
@@ -493,7 +493,7 @@ let transl_declaration env sdecl id =
         type_expansion_scope = Btype.lowest_level;
         type_loc = sdecl.ptype_loc;
         type_attributes = sdecl.ptype_attributes;
-        type_immediate = false;
+        type_immediate = Unknown;
         type_unboxed = unboxed_status;
       } in
 
@@ -1489,7 +1489,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
       type_expansion_scope = Btype.lowest_level;
       type_loc = sdecl.ptype_loc;
       type_attributes = sdecl.ptype_attributes;
-      type_immediate = false;
+      type_immediate = Unknown;
       type_unboxed;
     }
   in
@@ -1541,7 +1541,7 @@ let abstract_type_decl arity =
       type_expansion_scope = Btype.lowest_level;
       type_loc = Location.none;
       type_attributes = [];
-      type_immediate = false;
+      type_immediate = Unknown;
       type_unboxed = unboxed_false_default_false;
      } in
   Ctype.end_def();

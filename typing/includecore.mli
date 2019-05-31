@@ -34,7 +34,7 @@ type type_mismatch =
   | Field_missing of bool * Ident.t
   | Record_representation of bool
   | Unboxed_representation of bool
-  | Immediate
+  | Immediate of immediacy * immediacy
 
 val value_descriptions:
   loc:Location.t -> Env.t -> string ->

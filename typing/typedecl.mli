@@ -54,8 +54,7 @@ val check_coherence:
 (* for fixed types *)
 val is_fixed_type : Parsetree.type_declaration -> bool
 
-(* for typeopt.ml *)
-val get_unboxed_type_representation: Env.t -> type_expr -> type_expr option
+val get_unboxed_type_representation: Env.t -> type_expr -> Typedecl_unboxed.t
 
 type native_repr_kind = Unboxed | Untagged
 

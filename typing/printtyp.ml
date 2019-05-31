@@ -1185,7 +1185,13 @@ let rec tree_of_type_decl id decl =
         decl.type_private
   in
   let immediate =
-    Builtin_attributes.immediate decl.type_attributes
+    match
+      Builtin_attributes.immediate decl.type_attributes,
+      Builtin_attributes.immediate64 decl.type_attributes
+    with
+    | true, _ -> Always
+    | _, true -> Always_on_64bits
+    | false, false -> Unknown
   in
     { otype_name = name;
       otype_params = args;
@@ -1488,7 +1494,7 @@ let dummy =
     type_is_newtype = false; type_expansion_scope = Btype.lowest_level;
     type_loc = Location.none;
     type_attributes = [];
-    type_immediate = false;
+    type_immediate = Unknown;
     type_unboxed = unboxed_false_default_false;
   }
 
