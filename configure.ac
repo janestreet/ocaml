@@ -1022,17 +1022,6 @@ AC_CHECK_FUNC([getrusage], [AC_DEFINE([HAS_GETRUSAGE])])
 ## times
 AC_CHECK_FUNC([times], [AC_DEFINE([HAS_TIMES])])
 
-## secure_getenv and __secure_getenv
-
-saved_CPPFLAGS="$CPPFLAGS"
-CPPFLAGS="-D_GNU_SOURCE $CPPFLAGS"
-
-AC_CHECK_FUNC([secure_getenv],
-  [AC_DEFINE([HAS_SECURE_GETENV])],
-  [AC_CHECK_FUNC([__secure_getenv], [AC_DEFINE([HAS___SECURE_GETENV])])])
-
-CPP_FLAGS="$saved_CPPFLAGS"
-
 ## issetugid
 
 AC_CHECK_FUNC([issetugid], [AC_DEFINE([HAS_ISSETUGID])])
