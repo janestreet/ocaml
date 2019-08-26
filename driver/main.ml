@@ -48,22 +48,17 @@ module Options = Main_args.Make_bytecomp_options (struct
   let _dllpath s = dllpaths := !dllpaths @ [s]
   let _for_pack s = for_package := Some s
   let _g = set debug
-  let _i () =
-    print_types := true;
-    compile_only := true;
-    stop_after := Some Compiler_pass.Typing;
-    ()
+  let _i = set print_types
   let _stop_after pass =
     let module P = Compiler_pass in
-    begin match P.of_string pass with
+    match P.of_string pass with
     | None -> () (* this should not occur as we use Arg.Symbol *)
     | Some pass ->
-        stop_after := Some pass;
-        begin match pass with
-        | P.Parsing | P.Typing ->
-            compile_only := true
-        end;
-    end
+      match !stop_after with
+      | None -> stop_after := (Some pass)
+      | Some p ->
+        if not (p = pass) then
+          fatal "Please specify at most one -stop-after <pass>."
   let _I s = include_dirs := s :: !include_dirs
   let _impl = impl
   let _intf = intf
@@ -177,18 +172,21 @@ let main () =
     if
       List.length
         (List.filter (fun x -> !x)
-           [make_archive;make_package;compile_only;output_c_object])
+           [make_archive;make_package;stop_early;output_c_object])
         > 1
     then begin
       let module P = Clflags.Compiler_pass in
       match !stop_after with
       | None ->
         fatal "Please specify at most one of -pack, -a, -c, -output-obj";
-      | Some (P.Parsing | P.Typing) ->
-          Printf.ksprintf fatal
-            "Options -i and -stop-after (%s)\
-             are  incompatible with -pack, -a, -output-obj"
-            (String.concat "|" P.pass_names)
+      | Some ((P.Parsing | P.Typing) as p) ->
+        assert (P.is_compilation_pass p);
+        Printf.ksprintf fatal
+          "Options -i and -stop-after (%s) \
+           are  incompatible with -pack, -a, -output-obj"
+          (String.concat "|"
+             (Clflags.Compiler_pass.available_pass_names ~native:false))
+      | Some P.Scheduling -> assert false (* native only *)
     end;
     if !make_archive then begin
       Compmisc.init_path ();
@@ -207,7 +205,7 @@ let main () =
           revd (extracted_output));
       Warnings.check_fatal ();
     end
-    else if not !compile_only && !objfiles <> [] then begin
+    else if not !stop_early && !objfiles <> [] then begin
       let target =
         if !output_c_object then
           let s = extract_output !output_name in
