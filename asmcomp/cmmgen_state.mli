@@ -40,3 +40,7 @@ val data_items : unit -> Cmm.data_item list
 val next_function : unit -> Clambda.ufunction option
 
 val no_more_functions : unit -> bool
+
+val set_structured_constants : Clambda.preallocated_constant list -> unit
+
+val get_structured_constant : string -> Clambda.ustructured_constant option
