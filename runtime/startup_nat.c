@@ -111,7 +111,7 @@ value caml_startup_common(char_os **argv, int pooling)
 
   /* Determine options */
 #ifdef DEBUG
-  caml_verb_gc = 0x3F;
+  caml_verb_gc = 0;
 #endif
   caml_parse_ocamlrunparam();
 #ifdef DEBUG
