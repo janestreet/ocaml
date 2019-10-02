@@ -1379,6 +1379,9 @@ let check_unboxable env loc ty =
     all_unboxable_types
     ()
 
+let has_pure_attribute attrs =
+  Attr_helper.has_no_payload_attribute ["pure"; "ocaml.pure"]  attrs
+
 (* Translate a value declaration *)
 let transl_value_decl env loc valdecl =
   let cty = Typetexp.transl_type_scheme env valdecl.pval_type in
@@ -1387,7 +1390,7 @@ let transl_value_decl env loc valdecl =
   match valdecl.pval_prim with
     [] when Env.is_in_signature env ->
       { val_type = ty; val_kind = Val_reg; Types.val_loc = loc;
-        val_attributes = valdecl.pval_attributes }
+        val_attributes = valdecl.pval_attributes; val_pure = false }
   | [] ->
       raise (Error(valdecl.pval_loc, Val_in_structure))
   | _ ->
@@ -1414,8 +1417,9 @@ let transl_value_decl env loc valdecl =
       && prim.prim_native_name = ""
       then raise(Error(valdecl.pval_type.ptyp_loc, Missing_native_external));
       check_unboxable env loc ty;
+      let pure = has_pure_attribute valdecl.pval_attributes in
       { val_type = ty; val_kind = Val_prim prim; Types.val_loc = loc;
-        val_attributes = valdecl.pval_attributes }
+        val_attributes = valdecl.pval_attributes; val_pure = pure }
   in
   let (id, newenv) =
     Env.enter_value valdecl.pval_name.txt v env

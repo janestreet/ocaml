@@ -250,6 +250,7 @@ module Vars  : Map.S with type key = string
 type value_description =
   { val_type: type_expr;                (* Type of the value *)
     val_kind: value_kind;
+    val_pure: bool;
     val_loc: Location.t;
     val_attributes: Parsetree.attributes;
    }
