@@ -33,7 +33,7 @@ let {id} = id { id };;
 [%%expect {|
 type id = { id : 'a. 'a -> 'a; }
 val id : 'a -> 'a [@@pure] = <fun>
-val id : 'a -> 'a [@@pure] = <fun>
+val id : 'a -> 'a = <fun>
 |}];;
 
 let px = {pv = []};;
@@ -1333,8 +1333,8 @@ let f : 'a. _ -> _ = fun x -> x;;
 let zero : 'a. [> `Int of int | `B of 'a] as 'a  = `Int 0;; (* ok *)
 let zero : 'a. [< `Int of int] as 'a = `Int 0;; (* fails *)
 [%%expect {|
-val f : 'a -> int [@@pure] = <fun>
-val g : 'a -> int [@@pure] = <fun>
+val f : 'a -> int = <fun>
+val g : 'a -> int = <fun>
 type 'a t = Leaf of 'a | Node of ('a * 'a) t
 val depth : 'a t -> int = <fun>
 Line 6, characters 2-42:
@@ -1386,9 +1386,8 @@ and transf_alist : 'a. _ -> ('a*t) list -> ('a*t) list = fun f -> function
   | (k,v)::tl -> (k, transf f v) :: transf_alist f tl
 ;;
 [%%expect {|
-val transf : (int -> t) -> t -> t [@@pure] = <fun>
-val transf_alist : (int -> t) -> ('a * t) list -> ('a * t) list [@@pure] =
-  <fun>
+val transf : (int -> t) -> t -> t = <fun>
+val transf_alist : (int -> t) -> ('a * t) list -> ('a * t) list = <fun>
 |}];;
 
 (* PR#4862 *)
@@ -1568,7 +1567,7 @@ let rec f : unit -> < m: 'a. 'a -> 'a> = fun () ->
   ignore (x#m "hello");
   assert false;;
 [%%expect{|
-val f : unit -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
+val f : unit -> < m : 'a. 'a -> 'a > = <fun>
 |}]
 
 (* PR#7395 *)

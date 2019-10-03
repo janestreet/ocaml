@@ -77,6 +77,18 @@ type mkref = { mkref : 'a. 'a -> 'a ref; }
 val f : mkref -> 'a -> 'a = <fun>
 |}]
 
+(* must fail too *)
+let f {mkref} = let r = mkref [] in fun y -> r := [y]; List.hd !r;;
+[%%expect{|
+val f : mkref -> 'a -> 'a = <fun>
+|}]
+
+let rec f x = let r = mkref x [] in fun y -> r := [y]; List.hd !r
+and mkref : 'a. mkref -> 'a -> 'a ref = fun x -> x.mkref;;
+[%%expect{|
+val f : mkref -> 'a -> 'a = <fun>
+val mkref : mkref -> 'a -> 'a ref = <fun>
+|}]
 
 (* Modules *)
 

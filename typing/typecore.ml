@@ -1799,6 +1799,11 @@ let is_pure_record_label = function
 
 let maybe_expansive e = not (e.exp_pure || is_nonexpansive e)
 
+let is_poly_label label =
+  match repr label.lbl_arg with
+    {desc = Tpoly (_, _ :: _)} -> true
+  | _ -> false
+
 let check_recursive_bindings env valbinds =
   let ids = let_bound_idents valbinds in
   List.iter
@@ -2593,12 +2598,7 @@ and type_expect_
       let (record, label, _) = type_label_access env srecord lid in
       let (_, ty_arg, ty_res) = instance_label false label in
       unify_exp env record ty_res;
-      let pure =
-        record.exp_pure &&
-        match repr label.lbl_arg with
-          {desc = Tpoly (_, _ :: _)} -> false
-        | _ -> true
-      in
+      let pure = record.exp_pure && not (is_poly_label label) in
       rue {
         exp_desc = Texp_field(record, lid, label);
         exp_loc = loc; exp_extra = [];
@@ -4243,8 +4243,9 @@ and type_cases ?exception_allowed ?in_function env ty_arg pure_arg
           else
             ext_env
         in
+        let pure = pure_arg && not (has_poly_pattern pat) in
         let ext_env =
-          add_pattern_variables ext_env pvs ~pure:pure_arg
+          add_pattern_variables ext_env pvs ~pure
             ~check:(fun s -> Warnings.Unused_var_strict s)
             ~check_as:(fun s -> Warnings.Unused_var s)
         in
@@ -4326,6 +4327,22 @@ and type_cases ?exception_allowed ?in_function env ty_arg pure_arg
   end;
   cases, partial
 
+and make_bindings_impure env pvs =
+  List.fold_left
+    (fun env {pv_id} ->
+      let p = Path.Pident pv_id in
+      let vd = Env.find_value p env in
+      (* Should we do something about usage ? *)
+      Env.add_value pv_id {vd with val_pure = false} env)
+    env pvs
+
+and has_poly_pattern pat =
+  exists_pattern
+    (function {pat_desc=Tpat_record(fl,_)} ->
+      List.exists (fun (_,lbl,_) -> is_poly_label lbl) fl
+    | _ -> false)
+    pat
+
 (* Typing of let bindings *)
 
 and type_let
@@ -4370,17 +4387,23 @@ and type_let
   let attrs_list = List.map fst spatl in
   let is_recursive = (rec_flag = Recursive) in
   (* If recursive, first unify with an approximation of the expression *)
+  let has_poly_rec = ref false in
   if is_recursive then
     List.iter2
       (fun pat binding ->
         let pat =
           match pat.pat_type.desc with
           | Tpoly (ty, tl) ->
+              has_poly_rec := true;
               {pat with pat_type =
                snd (instance_poly ~keep_names:true false tl ty)}
           | _ -> pat
         in unify_pat env pat (type_approx env binding.pvb_expr))
       pat_list spat_sexp_list;
+  let has_poly_pat = List.exists has_poly_pattern pat_list in
+  let impure_rec = is_recursive && (!has_poly_rec || has_poly_pat) in
+  let new_env =
+    if impure_rec then make_bindings_impure new_env pvs else new_env in
   (* Polymorphic variant processing *)
   List.iter
     (fun pat ->
@@ -4559,14 +4582,9 @@ and type_let
   List.iter (fun exp -> generalize exp.exp_type) exp_list;
   (* Purity *)
   let new_env =
-    if List.for_all (fun e -> e.exp_pure) exp_list then new_env else
-    List.fold_left
-      (fun env {pv_id} ->
-        let p = Path.Pident pv_id in
-        let vd = Env.find_value p env in
-        (* Should we do something about usage ? *)
-        Env.add_value pv_id {vd with val_pure = false} env)
-      new_env pvs
+    if impure_rec
+    || not has_poly_pat && List.for_all (fun e -> e.exp_pure) exp_list
+    then new_env else make_bindings_impure new_env pvs
   in
   let l = List.combine pat_list exp_list in
   let l =
