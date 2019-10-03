@@ -36,4 +36,16 @@ let p2 =
 
 type mkref = {mkref: 'a. 'a -> 'a ref}
 
-let f x = let r = x.mkref [] in fun y -> r := [y]; List.hd !r
+let f x = let r = x.mkref [] in fun y -> r := [y]; List.hd !r;;
+
+
+(* Modules *)
+
+module type T = sig
+  val some : 'a -> 'a option [@@pure]
+end;;
+
+module M : T = struct let some x = Some x end;;
+
+(* fails *)
+module M' : T = struct let some x = let r = ref x in Some !r end;;
