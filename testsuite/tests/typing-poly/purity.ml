@@ -2,7 +2,8 @@ let some x = Some x;;
 let a = some (fun x -> x);;
 
 let r = ref;;
-let c = ref (fun x -> x);;
+let c = r (fun x -> x);;
+let c' = {contents=fun x -> x};;
 
 type 'a cell = {get: unit -> 'a; set: 'a -> unit};;
 let mkcell x = let r = ref x in {get=(fun() -> !r);set=(:=) r};;
@@ -29,3 +30,10 @@ let p2 = f2 mkcell;;
 let p2 =
   let (_,id) = (mkcell (), fun x -> x) in
   id true, id 1;;
+
+
+(* Subtle case *)
+
+type mkref = {mkref: 'a. 'a -> 'a ref}
+
+let f x = let r = x.mkref [] in fun y -> r := [y]; List.hd !r

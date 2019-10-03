@@ -1576,7 +1576,7 @@ let type_class_arg_pattern cl_num val_env met_env l spat =
           Env.add_value id' {val_type = pv_type;
                              val_kind = Val_ivar (Immutable, cl_num);
                              val_attributes = pv_attributes;
-                             Types.val_loc = pv_loc; val_pure = false;
+                             Types.val_loc = pv_loc; val_pure = true;
                             } ~check
             env))
       !pattern_variables ([], met_env)
@@ -2276,9 +2276,6 @@ and type_expect_
       let body =
         type_expect new_env (wrap_unpacks sbody unpacks)
           ty_expected_explained in
-      let pure =
-        body.exp_pure &&
-        List.for_all (fun {vb_expr=e} -> e.exp_pure) pat_exp_list in
       let () =
         if rec_flag = Recursive then
           check_recursive_bindings env pat_exp_list
@@ -2288,7 +2285,7 @@ and type_expect_
         exp_loc = loc; exp_extra = [];
         exp_type = body.exp_type;
         exp_attributes = sexp.pexp_attributes;
-        exp_env = env; exp_pure = pure }
+        exp_env = env; exp_pure = body.exp_pure }
   | Pexp_fun (l, Some default, spat, sbody) ->
       assert(is_optional l); (* default allowed only with optional argument *)
       let open Ast_helper in
@@ -2357,9 +2354,7 @@ and type_expect_
       end_def ();
       unify_var env (newvar()) funct.exp_type;
       let pure =
-        funct.exp_pure && List.for_all
-          (fun (_,e) ->
-            Option.fold ~none:true ~some:(fun e -> e.exp_pure) e) args
+        funct.exp_pure && List.for_all (fun (_,e) -> is_pure_option e) args
       in
       rue {
         exp_desc = Texp_apply(funct, args);
@@ -2436,8 +2431,6 @@ and type_expect_
       with Not_found ->
         let arg = Option.map (type_exp env) sarg in
         let arg_type = Option.map (fun arg -> arg.exp_type) arg in
-        let pure =
-          Option.fold ~none:true ~some:(fun arg -> arg.exp_pure) arg in
         rue {
           exp_desc = Texp_variant(l, arg);
           exp_loc = loc; exp_extra = [];
@@ -2448,7 +2441,7 @@ and type_expect_
                                     row_fixed = None;
                                     row_name = None});
           exp_attributes = sexp.pexp_attributes;
-          exp_env = env; exp_pure = pure }
+          exp_env = env; exp_pure = is_pure_option arg }
       end
   | Pexp_record(lid_sexp_list, opt_sexp) ->
       assert (lid_sexp_list <> []);
@@ -2600,12 +2593,18 @@ and type_expect_
       let (record, label, _) = type_label_access env srecord lid in
       let (_, ty_arg, ty_res) = instance_label false label in
       unify_exp env record ty_res;
+      let pure =
+        record.exp_pure &&
+        match repr label.lbl_arg with
+          {desc = Tpoly (_, _ :: _)} -> false
+        | _ -> true
+      in
       rue {
         exp_desc = Texp_field(record, lid, label);
         exp_loc = loc; exp_extra = [];
         exp_type = ty_arg;
         exp_attributes = sexp.pexp_attributes;
-        exp_env = env; exp_pure = record.exp_pure }
+        exp_env = env; exp_pure = pure }
   | Pexp_setfield(srecord, lid, snewval) ->
       let (record, label, opath) = type_label_access env srecord lid in
       let ty_record = if opath = None then newvar () else record.exp_type in
@@ -2645,7 +2644,7 @@ and type_expect_
             exp_loc = loc; exp_extra = [];
             exp_type = ifso.exp_type;
             exp_attributes = sexp.pexp_attributes;
-            exp_env = env; exp_pure = cond.exp_pure && ifso.exp_pure }
+            exp_env = env; exp_pure = ifso.exp_pure }
       | Some sifnot ->
           let ifso = type_expect env sifso ty_expected_explained in
           let ifnot = type_expect env sifnot ty_expected_explained in
@@ -2657,7 +2656,7 @@ and type_expect_
             exp_type = ifso.exp_type;
             exp_attributes = sexp.pexp_attributes;
             exp_env = env;
-            exp_pure = cond.exp_pure && ifso.exp_pure && ifnot.exp_pure }
+            exp_pure = ifso.exp_pure && ifnot.exp_pure }
       end
   | Pexp_sequence(sexp1, sexp2) ->
       let exp1 = type_statement ~explanation:Sequence_left_hand_side
@@ -2668,7 +2667,7 @@ and type_expect_
         exp_loc = loc; exp_extra = [];
         exp_type = exp2.exp_type;
         exp_attributes = sexp.pexp_attributes;
-        exp_env = env; exp_pure = exp1.exp_pure && exp2.exp_pure }
+        exp_env = env; exp_pure = exp2.exp_pure }
   | Pexp_while(scond, sbody) ->
       let cond = type_expect env scond
           (mk_expected ~explanation:While_loop_conditional Predef.type_bool) in
@@ -2678,7 +2677,7 @@ and type_expect_
         exp_loc = loc; exp_extra = [];
         exp_type = instance Predef.type_unit;
         exp_attributes = sexp.pexp_attributes;
-        exp_env = env; exp_pure = false }
+        exp_env = env; exp_pure = true }
   | Pexp_for(param, slow, shigh, dir, sbody) ->
       let low = type_expect env slow
           (mk_expected ~explanation:For_loop_start_index Predef.type_int) in
@@ -2701,7 +2700,7 @@ and type_expect_
         exp_loc = loc; exp_extra = [];
         exp_type = instance Predef.type_unit;
         exp_attributes = sexp.pexp_attributes;
-        exp_env = env; exp_pure = false }
+        exp_env = env; exp_pure = true }
   | Pexp_constraint (sarg, sty) ->
       (* Pretend separate = true, 1% slowdown for lablgtk *)
       begin_def ();
@@ -2953,7 +2952,7 @@ and type_expect_
             exp_loc = loc; exp_extra = [];
             exp_type = instance Predef.type_unit;
             exp_attributes = sexp.pexp_attributes;
-            exp_env = env; exp_pure = newval.exp_pure }
+            exp_env = env; exp_pure = true }
       | _ ->
           raise(Error(loc, env, Instance_variable_not_mutable lab.txt))
     end
@@ -3208,7 +3207,7 @@ and type_expect_
         exp_loc = loc;
         exp_extra = [];
         exp_attributes = sexp.pexp_attributes;
-        exp_env = env; exp_pure = true;
+        exp_env = env; exp_pure = exp.exp_pure;
       }
   | Pexp_letop{ let_ = slet; ands = sands; body = sbody } ->
       let rec loop spat_acc ty_acc sands =
