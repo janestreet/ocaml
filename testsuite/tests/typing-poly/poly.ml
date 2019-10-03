@@ -32,13 +32,13 @@ let id x = x;;
 let {id} = id { id };;
 [%%expect {|
 type id = { id : 'a. 'a -> 'a; }
-val id : 'a -> 'a = <fun>
-val id : 'a -> 'a = <fun>
+val id : 'a -> 'a [@@pure] = <fun>
+val id : 'a -> 'a [@@pure] = <fun>
 |}];;
 
 let px = {pv = []};;
 [%%expect {|
-val px : pty = {pv = []}
+val px : pty [@@pure] = {pv = []}
 |}];;
 
 match px with
@@ -341,7 +341,7 @@ module V =
   end
 ;;
 [%%expect {|
-module V : sig type v = [ `A | `B | `C ] val m : [< v ] -> int end
+module V : sig type v = [ `A | `B | `C ] val m : [< v ] -> int [@@pure] end
 |}];;
 
 class varj = object
@@ -459,7 +459,7 @@ val p1 : point = <obj>
 val cp : color_point = <obj>
 val c : circle = <obj>
 val d : float = 11.
-val f : < m : 'a. 'a -> 'a > -> < m : 'b. 'b -> 'b > = <fun>
+val f : < m : 'a. 'a -> 'a > -> < m : 'b. 'b -> 'b > [@@pure] = <fun>
 Line 9, characters 41-42:
 9 | let f (x : < m : 'a. 'a -> 'a list >) = (x : < m : 'b. 'b -> 'c >)
                                              ^
@@ -750,7 +750,7 @@ let append (l : 'a #olist) (l' : 'b #olist) =
   l#fold ~init:l' ~f:(fun x acc -> acc#cons x)
 ;;
 [%%expect {|
-val id : 'a -> 'a = <fun>
+val id : 'a -> 'a [@@pure] = <fun>
 class c : object method id : 'a -> 'a end
 class c' : object method id : 'a -> 'a end
 class d :
@@ -836,13 +836,14 @@ Error: This field value has type 'b option ref which is less general than
 let f (x: <m:'a.<p: 'a * 'b> as 'b>) (y : 'b) = ();;
 let f (x: <m:'a. 'a * (<p:int*'b> as 'b)>) (y : 'b) = ();;
 [%%expect {|
-val f : < m : 'a. < p : 'a * 'c > as 'c > -> 'b -> unit = <fun>
-val f : < m : 'a. 'a * (< p : int * 'b > as 'b) > -> 'b -> unit = <fun>
+val f : < m : 'a. < p : 'a * 'c > as 'c > -> 'b -> unit [@@pure] = <fun>
+val f : < m : 'a. 'a * (< p : int * 'b > as 'b) > -> 'b -> unit [@@pure] =
+  <fun>
 |}, Principal{|
-val f : < m : 'a. < p : 'a * 'c > as 'c > -> 'b -> unit = <fun>
+val f : < m : 'a. < p : 'a * 'c > as 'c > -> 'b -> unit [@@pure] = <fun>
 val f :
   < m : 'a. 'a * (< p : int * 'b > as 'b) > ->
-  (< p : int * 'c > as 'c) -> unit = <fun>
+  (< p : int * 'c > as 'c) -> unit [@@pure] = <fun>
 |}];;
 
 (* PR#3643 *)
@@ -1146,13 +1147,13 @@ Line 3, characters 2-64:
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Signature mismatch:
        Modules do not match:
-         sig val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit end
+         sig val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit [@@pure] end
        is not included in
          sig
            val f : < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > -> unit
          end
        Values do not match:
-         val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit
+         val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit [@@pure]
        is not included in
          val f : < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > -> unit
 |}];;
@@ -1239,20 +1240,20 @@ fun x -> (f (x,x))#m;; (* Warning 18 *)
 let f x = if true then [| (x : < m : 'a. 'a -> 'a >) |] else [|x|];;
 fun x -> (f x).(0)#m;; (* Warning 18 *)
 [%%expect {|
-val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > = <fun>
+val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
 - : < m : 'a. 'a -> 'a > -> 'b -> 'b = <fun>
-val f : < m : 'a. 'a -> 'a > * 'b -> < m : 'a. 'a -> 'a > = <fun>
+val f : < m : 'a. 'a -> 'a > * 'b -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
 - : < m : 'a. 'a -> 'a > -> 'b -> 'b = <fun>
 val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > array = <fun>
 - : < m : 'a. 'a -> 'a > -> 'b -> 'b = <fun>
 |}, Principal{|
-val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > = <fun>
+val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
 Line 2, characters 9-16:
 2 | fun x -> (f x)#m;; (* Warning 18 *)
              ^^^^^^^
 Warning 18: this use of a polymorphic method is not principal.
 - : < m : 'a. 'a -> 'a > -> 'b -> 'b = <fun>
-val f : < m : 'a. 'a -> 'a > * 'b -> < m : 'a. 'a -> 'a > = <fun>
+val f : < m : 'a. 'a -> 'a > * 'b -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
 Line 4, characters 9-20:
 4 | fun x -> (f (x,x))#m;; (* Warning 18 *)
              ^^^^^^^^^^^
@@ -1332,8 +1333,8 @@ let f : 'a. _ -> _ = fun x -> x;;
 let zero : 'a. [> `Int of int | `B of 'a] as 'a  = `Int 0;; (* ok *)
 let zero : 'a. [< `Int of int] as 'a = `Int 0;; (* fails *)
 [%%expect {|
-val f : 'a -> int = <fun>
-val g : 'a -> int = <fun>
+val f : 'a -> int [@@pure] = <fun>
+val g : 'a -> int [@@pure] = <fun>
 type 'a t = Leaf of 'a | Node of ('a * 'a) t
 val depth : 'a t -> int = <fun>
 Line 6, characters 2-42:
@@ -1350,7 +1351,7 @@ type t = {f: 'a. [< `Int of int] as 'a}
 let zero = {f = `Int 0} ;; (* fails *)
 [%%expect {|
 type t = { f : 'a. [> `B of 'a | `Int of int ] as 'a; }
-val zero : t = {f = `Int 0}
+val zero : t [@@pure] = {f = `Int 0}
 type t = { f : 'a. [< `Int of int ] as 'a; }
 Line 4, characters 16-22:
 4 | let zero = {f = `Int 0} ;; (* fails *)
@@ -1385,8 +1386,9 @@ and transf_alist : 'a. _ -> ('a*t) list -> ('a*t) list = fun f -> function
   | (k,v)::tl -> (k, transf f v) :: transf_alist f tl
 ;;
 [%%expect {|
-val transf : (int -> t) -> t -> t = <fun>
-val transf_alist : (int -> t) -> ('a * t) list -> ('a * t) list = <fun>
+val transf : (int -> t) -> t -> t [@@pure] = <fun>
+val transf_alist : (int -> t) -> ('a * t) list -> ('a * t) list [@@pure] =
+  <fun>
 |}];;
 
 (* PR#4862 *)
@@ -1423,9 +1425,9 @@ end;;
 module Polux :
   sig
     type 'par t = 'par
-    val ident : 'a -> 'a
+    val ident : 'a -> 'a [@@pure]
     class alias : object method alias : 'a t -> 'a end
-    val f : < m : 'a. 'a t > -> < m : 'a. 'a >
+    val f : < m : 'a. 'a t > -> < m : 'a. 'a > [@@pure]
   end
 |}];;
 
@@ -1460,7 +1462,7 @@ let using_match b =
   f 0,f
 ;;
 [%%expect {|
-val using_match : bool -> int * ('a -> 'a) = <fun>
+val using_match : bool -> int * ('a -> 'a) [@@pure] = <fun>
 |}];;
 
 match (fun x -> x), fun x -> x with x, y -> x, y;;
@@ -1542,7 +1544,7 @@ let rec f1 o c x =
 type 'a t = V1 of 'a
 type ('c, 't) pvariant = [ `V of 'c * 't t ]
 class ['c] clss : object method mthod : 'c -> 't t -> ('c, 't) pvariant end
-val f2 : 'a -> 'b -> 'c t -> 'c t = <fun>
+val f2 : 'a -> 'b -> 'c t -> 'c t [@@pure] = <fun>
 val f1 :
   < mthod : 't. 'a -> 't t -> [< `V of 'a * 't t ]; .. > ->
   'a -> 'b t -> 'b t = <fun>
@@ -1566,7 +1568,7 @@ let rec f : unit -> < m: 'a. 'a -> 'a> = fun () ->
   ignore (x#m "hello");
   assert false;;
 [%%expect{|
-val f : unit -> < m : 'a. 'a -> 'a > = <fun>
+val f : unit -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
 |}]
 
 (* PR#7395 *)
@@ -1591,7 +1593,7 @@ let f t = { x = t.x };;
 [%%expect{|
 val f :
   < m : 'a. ([< `Foo of int & float ] as 'a) -> unit > ->
-  < m : 'b. ([< `Foo of int & float ] as 'b) -> unit > = <fun>
+  < m : 'b. ([< `Foo of int & float ] as 'b) -> unit > [@@pure] = <fun>
 type t = { x : 'a. ([< `Foo of int & float ] as 'a) -> unit; }
 val f : t -> t = <fun>
 |}]
@@ -1694,7 +1696,7 @@ Error: Illegal open object type
 
 let g = fun (y : ('a * 'b)) x -> (x : < <m: 'a> ; <m: 'b> >)
 [%%expect{|
-val g : 'a * 'a -> < m : 'a > -> < m : 'a > = <fun>
+val g : 'a * 'a -> < m : 'a > -> < m : 'a > [@@pure] = <fun>
 |}]
 
 type 'a t = <m: 'a ; m: int>
@@ -1717,7 +1719,7 @@ external reraise : exn -> 'a = "%reraise"
 module M :
   functor () ->
     sig
-      val f : 'a -> 'a
+      val f : 'a -> 'a [@@pure]
       val g : 'a -> 'a
       val h : 'a -> 'a
       val i : 'a -> 'a
@@ -1743,16 +1745,16 @@ let id x = x;;
 [%%expect{|
 type 'a t = 'a constraint 'a = 'b list
 type 'a s = 'a list
-val id : 'a -> 'a = <fun>
+val id : 'a -> 'a [@@pure] = <fun>
 |}]
 
 let x : [ `Foo of _ s | `Foo of 'a t ] = id (`Foo []);;
 [%%expect{|
-val x : [ `Foo of 'a s ] = `Foo []
+val x : [ `Foo of 'a s ] [@@pure] = `Foo []
 |}]
 let x : [ `Foo of 'a t | `Foo of _ s ] = id (`Foo []);;
 [%%expect{|
-val x : [ `Foo of 'a list t ] = `Foo []
+val x : [ `Foo of 'a list t ] [@@pure] = `Foo []
 |}]
 
 (* generalize spine of inherited methods too *)
