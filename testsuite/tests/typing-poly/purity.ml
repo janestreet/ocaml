@@ -90,6 +90,18 @@ val f : mkref -> 'a -> 'a = <fun>
 val mkref : mkref -> 'a -> 'a ref = <fun>
 |}]
 
+(* recursion *)
+(* recursive call to id impure due to polymorphism *)
+let rec id : 'a. 'a -> 'a = fun x -> id x;;
+[%%expect{|
+val id : 'a -> 'a = <fun>
+|}]
+(* ok if not called *)
+let rec id : 'a. 'a -> 'a = fun x -> x;;
+[%%expect{|
+val id : 'a -> 'a [@@pure] = <fun>
+|}]
+
 (* Modules *)
 
 module type T = sig

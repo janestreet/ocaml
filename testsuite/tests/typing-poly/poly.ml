@@ -1567,7 +1567,7 @@ let rec f : unit -> < m: 'a. 'a -> 'a> = fun () ->
   ignore (x#m "hello");
   assert false;;
 [%%expect{|
-val f : unit -> < m : 'a. 'a -> 'a > = <fun>
+val f : unit -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
 |}]
 
 (* PR#7395 *)

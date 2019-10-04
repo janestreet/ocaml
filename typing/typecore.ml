@@ -4402,7 +4402,7 @@ and type_let
       pat_list spat_sexp_list;
   let has_poly_pat = List.exists has_poly_pattern pat_list in
   let impure_rec = is_recursive && (!has_poly_rec || has_poly_pat) in
-  let new_env =
+  let rec_env =
     if impure_rec then make_bindings_impure new_env pvs else new_env in
   (* Polymorphic variant processing *)
   List.iter
@@ -4432,7 +4432,7 @@ and type_let
     | _ -> false
   in
   let exp_env =
-    if is_recursive then new_env
+    if is_recursive then rec_env
     else if List.for_all sexp_is_fun spat_sexp_list
     then begin
       (* Add ghost bindings to help detecting missing "rec" keywords.
@@ -4581,10 +4581,10 @@ and type_let
      ]} *)
   List.iter (fun exp -> generalize exp.exp_type) exp_list;
   (* Purity *)
+  let pure = not has_poly_pat && List.for_all (fun e -> e.exp_pure) exp_list in
   let new_env =
-    if impure_rec
-    || not has_poly_pat && List.for_all (fun e -> e.exp_pure) exp_list
-    then new_env else make_bindings_impure new_env pvs
+    if pure then new_env else
+    if impure_rec then rec_env else make_bindings_impure new_env pvs
   in
   let l = List.combine pat_list exp_list in
   let l =
