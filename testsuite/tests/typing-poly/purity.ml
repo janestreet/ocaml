@@ -66,6 +66,39 @@ Error: This expression has type int but an expression was expected of type
          bool
 |}]
 
+(* Failure of subject reduction *)
+
+let id x = x
+let k x y = x;;
+[%%expect{|
+val id : 'a -> 'a [@@pure] = <fun>
+val k : 'a -> 'b -> 'a [@@pure] = <fun>
+|}]
+
+let p = (fun r -> let id' = k id r in (id' 1, id' true)) ref;;
+[%%expect{|
+val p : int * bool = (1, true)
+|}]
+let p' = let id' = k id ref in (id' 1, id' true);;
+[%%expect{|
+Line 1, characters 43-47:
+1 | let p' = let id' = k id ref in (id' 1, id' true);;
+                                               ^^^^
+Error: This expression has type bool but an expression was expected of type
+         int
+|}]
+let p2 = let r = ref in let id' = k id r in (id' 1, id' true);;
+[%%expect{|
+Line 1, characters 56-60:
+1 | let p2 = let r = ref in let id' = k id r in (id' 1, id' true);;
+                                                            ^^^^
+Error: This expression has type bool but an expression was expected of type
+         int
+|}]
+let p3 = let id' = ignore ref; id in (id' 1, id' true);;
+[%%expect{|
+val p3 : int * bool [@@pure] = (1, true)
+|}]
 
 (* Subtle case *)
 
