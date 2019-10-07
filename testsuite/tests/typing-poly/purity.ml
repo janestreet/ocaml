@@ -67,6 +67,8 @@ Error: This expression has type int but an expression was expected of type
 |}]
 
 (* Failure of subject reduction *)
+(* Relaxed value already made it fail, but it was for internal reduction rules.
+   See J. Garrigue, Relaxing the value restrion, FLOPS 2004 for an example *)
 
 let id x = x
 let k x y = x;;
@@ -100,22 +102,24 @@ let p3 = let id' = ignore ref; id in (id' 1, id' true);;
 val p3 : int * bool [@@pure] = (1, true)
 |}]
 
-(* Subtle case *)
+(* Must carefuly track polymorphism to keep soundness *)
 
 type mkref = {mkref: 'a. 'a -> 'a ref};;
 
+(* Accessing a polymorphic field is impure *)
 let f x = let r = x.mkref [] in fun y -> r := [y]; List.hd !r;;
 [%%expect{|
 type mkref = { mkref : 'a. 'a -> 'a ref; }
 val f : mkref -> 'a -> 'a = <fun>
 |}]
 
-(* must fail too *)
+(* Shouldn't generalize mkref here either *)
 let f {mkref} = let r = mkref [] in fun y -> r := [y]; List.hd !r;;
 [%%expect{|
 val f : mkref -> 'a -> 'a = <fun>
 |}]
 
+(* Beware of polymorphic recursion too *)
 let rec f x = let r = mkref x [] in fun y -> r := [y]; List.hd !r
 and mkref : 'a. mkref -> 'a -> 'a ref = fun x -> x.mkref;;
 [%%expect{|
@@ -123,7 +127,7 @@ val f : mkref -> 'a -> 'a = <fun>
 val mkref : mkref -> 'a -> 'a ref = <fun>
 |}]
 
-(* recursion *)
+(* Limitation on recursion *)
 (* recursive call to id impure due to polymorphism *)
 let rec id : 'a. 'a -> 'a = fun x -> id x;;
 [%%expect{|
