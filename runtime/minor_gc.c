@@ -63,12 +63,6 @@
          native code, or [caml_young_trigger].
 */
 
-/* Asserts that a word is a valid header for a young object */
-#define CAMLassert_young_header(hd)                \
-  CAMLassert(Wosize_hd(hd) > 0 &&                  \
-             Wosize_hd(hd) <= Max_young_wosize &&  \
-             (Is_white_hd(hd) || Is_black_hd (hd)))
-
 struct generic_table CAML_TABLE_STRUCT(char);
 
 asize_t caml_minor_heap_wsz;
@@ -474,9 +468,6 @@ void caml_empty_minor_heap (double aging_ratio)
   uintnat prev_alloc_words;
   struct caml_ephe_ref_elt *re, *keep_re;
 
-  if (caml_young_ptr != caml_young_alloc_end){
-    CAMLassert_young_header(*(header_t*)caml_young_ptr);
-  }
   if (caml_minor_gc_begin_hook != NULL) (*caml_minor_gc_begin_hook) ();
   CAML_INSTR_SETUP (tmr, "minor");
   prev_alloc_words = caml_allocated_words;
