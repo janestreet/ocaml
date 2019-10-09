@@ -167,3 +167,16 @@ Error: Signature mismatch:
        is not included in
          val some : 'a -> 'a option [@@pure]
 |}]
+
+
+(* Classes *)
+
+let k x y = x;;
+class c (x : int) =
+  let id x = x in
+  object method m = let id = k id x in (id 1, id true) end;;
+[%%expect]
+class d (x : int) =
+  let id x = x in
+  object val x = x method m = let id = k id x in (id 1, id true) end;;
+[%%expect]

@@ -262,7 +262,7 @@ let enter_met_env ?check loc lab kind unbound_kind ty val_env met_env par_env =
   let par_env = Env.enter_unbound_value lab unbound_kind par_env in
   let (id, met_env) =
     Env.enter_value ?check lab
-      {val_type = ty; val_kind = kind; val_pure = false;
+      {val_type = ty; val_kind = kind; val_pure = true;
        val_attributes = []; Types.val_loc = loc} met_env
   in
   (id, val_env, met_env, par_env)
@@ -1037,7 +1037,7 @@ and class_expr_aux cl_num val_env met_env scl =
               exp_loc = Location.none; exp_extra = [];
               exp_type = Ctype.instance vd.val_type;
               exp_attributes = []; (* check *)
-              exp_env = val_env'; exp_pure = false})
+              exp_env = val_env'; exp_pure = vd.val_pure})
           end
           pv
       in
@@ -1188,7 +1188,7 @@ and class_expr_aux cl_num val_env met_env scl =
                 exp_loc = Location.none; exp_extra = [];
                 exp_type = Ctype.instance vd.val_type;
                 exp_attributes = [];
-                exp_env = val_env; exp_pure = false;
+                exp_env = val_env; exp_pure = vd.val_pure;
                }
              in
              Ctype.end_def ();
@@ -1196,7 +1196,7 @@ and class_expr_aux cl_num val_env met_env scl =
              let desc =
                {val_type = expr.exp_type; val_kind = Val_ivar (Immutable,
                                                                cl_num);
-                val_attributes = []; val_pure = false;
+                val_attributes = []; val_pure = vd.val_pure;
                 Types.val_loc = vd.Types.val_loc;
                }
              in
