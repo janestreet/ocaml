@@ -23,8 +23,8 @@ let () =
   register_named_value "Pervasives.array_bound_error"
     (Invalid_argument "index out of bounds")
 
-external raise : exn -> 'a = "%raise"
-external raise_notrace : exn -> 'a = "%raise_notrace"
+external raise : exn -> 'a = "%raise" [@@pure]
+external raise_notrace : exn -> 'a = "%raise_notrace" [@@pure]
 
 let failwith s = raise(Failure s)
 let invalid_arg s = raise(Invalid_argument s)
@@ -45,8 +45,8 @@ exception Undefined_recursive_module = Undefined_recursive_module
 
 (* Composition operators *)
 
-external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply"
-external ( @@ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
+external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply" [@@pure]
+external ( @@ ) : ('a -> 'b) -> 'a -> 'b = "%apply" [@@pure]
 
 (* Debugging *)
 
@@ -62,19 +62,19 @@ external __POS_OF__ : 'a -> (string * int * int * int) * 'a = "%loc_POS"
 
 (* Comparisons *)
 
-external ( = ) : 'a -> 'a -> bool = "%equal"
-external ( <> ) : 'a -> 'a -> bool = "%notequal"
-external ( < ) : 'a -> 'a -> bool = "%lessthan"
-external ( > ) : 'a -> 'a -> bool = "%greaterthan"
-external ( <= ) : 'a -> 'a -> bool = "%lessequal"
-external ( >= ) : 'a -> 'a -> bool = "%greaterequal"
-external compare : 'a -> 'a -> int = "%compare"
+external ( = ) : 'a -> 'a -> bool = "%equal" [@@pure]
+external ( <> ) : 'a -> 'a -> bool = "%notequal" [@@pure]
+external ( < ) : 'a -> 'a -> bool = "%lessthan" [@@pure]
+external ( > ) : 'a -> 'a -> bool = "%greaterthan" [@@pure]
+external ( <= ) : 'a -> 'a -> bool = "%lessequal" [@@pure]
+external ( >= ) : 'a -> 'a -> bool = "%greaterequal" [@@pure]
+external compare : 'a -> 'a -> int = "%compare" [@@pure]
 
 let min x y = if x <= y then x else y
 let max x y = if x >= y then x else y
 
-external ( == ) : 'a -> 'a -> bool = "%eq"
-external ( != ) : 'a -> 'a -> bool = "%noteq"
+external ( == ) : 'a -> 'a -> bool = "%eq" [@@pure]
+external ( != ) : 'a -> 'a -> bool = "%noteq" [@@pure]
 
 (* Boolean operations *)
 
@@ -220,12 +220,12 @@ let char_of_int n =
 
 (* Unit operations *)
 
-external ignore : 'a -> unit = "%ignore"
+external ignore : 'a -> unit = "%ignore" [@@pure]
 
 (* Pair operations *)
 
-external fst : 'a * 'b -> 'a = "%field0"
-external snd : 'a * 'b -> 'b = "%field1"
+external fst : 'a * 'b -> 'a = "%field0" [@@pure]
+external snd : 'a * 'b -> 'b = "%field1" [@@pure]
 
 (* References *)
 
@@ -532,7 +532,7 @@ let string_of_format (Format (_fmt, str)) = str
 
 external format_of_string :
  ('a, 'b, 'c, 'd, 'e, 'f) format6 ->
- ('a, 'b, 'c, 'd, 'e, 'f) format6 = "%identity"
+ ('a, 'b, 'c, 'd, 'e, 'f) format6 = "%identity" [@@pure]
 
 let ( ^^ ) (Format (fmt1, str1)) (Format (fmt2, str2)) =
   Format (CamlinternalFormatBasics.concat_fmt fmt1 fmt2,
@@ -540,7 +540,7 @@ let ( ^^ ) (Format (fmt1, str1)) (Format (fmt2, str2)) =
 
 (* Miscellaneous *)
 
-external sys_exit : int -> 'a = "caml_sys_exit"
+external sys_exit : int -> 'a = "caml_sys_exit" [@@pure]
 
 let exit_function = ref flush_all
 

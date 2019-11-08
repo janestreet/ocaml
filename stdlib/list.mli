@@ -29,6 +29,8 @@
 type 'a t = 'a list = [] | (::) of 'a * 'a list (**)
 (** An alias for the type of lists. *)
 
+[@@@pure] (* List operations are pure *)
+
 val length : 'a list -> int
 (** Return the length (number of elements) of the given list. *)
 

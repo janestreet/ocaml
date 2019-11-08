@@ -1153,6 +1153,7 @@ and transl_modtype_aux env smty =
 
 and transl_signature env sg =
   let names = Signature_names.create () in
+  let pure = ref None in
   let rec transl_sig env sg =
     match sg with
       [] -> [], [], env
@@ -1160,6 +1161,12 @@ and transl_signature env sg =
         let loc = item.psig_loc in
         match item.psig_desc with
         | Psig_value sdesc ->
+            let sdesc =
+              match !pure with
+              | Some attr ->
+                  {sdesc with pval_attributes = attr :: sdesc.pval_attributes}
+              | None -> sdesc
+            in
             let (tdesc, newenv) =
               Typedecl.transl_value_decl env item.psig_loc sdesc
             in
@@ -1407,6 +1414,12 @@ and transl_signature env sg =
               :: trem
             in
             typedtree, sg, final_env
+        | Psig_attribute ({attr_name = {txt=("pure"|"ocaml.pure")} } as attr) ->
+            pure := Some attr;
+            transl_sig env srem
+        | Psig_attribute {attr_name = {txt=("impure"|"ocaml.impure")} } ->
+            pure := None;
+            transl_sig env srem
         | Psig_attribute x ->
             Builtin_attributes.warning_attribute x;
             let (trem,rem, final_env) = transl_sig env srem in

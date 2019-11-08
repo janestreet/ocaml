@@ -2359,7 +2359,8 @@ and type_expect_
       end_def ();
       unify_var env (newvar()) funct.exp_type;
       let pure =
-        funct.exp_pure && List.for_all (fun (_,e) -> is_pure_option e) args
+        funct.exp_pure && List.for_all (fun (_,e) -> is_pure_option e) args ||
+        Ctype.free_variables ty_res = []
       in
       rue {
         exp_desc = Texp_apply(funct, args);

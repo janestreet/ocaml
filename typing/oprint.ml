@@ -613,7 +613,8 @@ and print_out_sig_item ppf =
       in
       fprintf ppf "@[<2>%s %a :@ %a%a%a@]" kwd value_ident vd.oval_name
         !out_type vd.oval_type pr_prims vd.oval_prims
-        (fun ppf -> List.iter (fun a -> fprintf ppf "@ [@@@@%s]" a.oattr_name))
+        (fun ppf l ->
+          List.iter (fun a -> fprintf ppf "@ [@@@@%s]" a.oattr_name) l)
         vd.oval_attributes
   | Osig_ellipsis ->
       fprintf ppf "..."

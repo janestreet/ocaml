@@ -27,6 +27,8 @@
 
 (** {1 Exceptions} *)
 
+[@@@pure]
+
 external raise : exn -> 'a = "%raise"
 (** Raise the given exception value *)
 
@@ -40,6 +42,8 @@ val invalid_arg : string -> 'a
 
 val failwith : string -> 'a
 (** Raise exception [Failure] with the given string. *)
+
+[@@@impure]
 
 exception Exit
 (** The [Exit] exception is not raised by any library function.  It is
@@ -114,6 +118,8 @@ exception Undefined_recursive_module of (string * int * int)
    the source code (file name, line number, column number). *)
 
 (** {1 Comparisons} *)
+
+[@@@pure]
 
 external ( = ) : 'a -> 'a -> bool = "%equal"
 (** [e1 = e2] tests for structural equality of [e1] and [e2].
@@ -202,6 +208,7 @@ external ( != ) : 'a -> 'a -> bool = "%noteq"
     Left-associative operator,  see {!Ocaml_operators} for more information.
 *)
 
+[@@@impure]
 
 (** {1 Boolean operations} *)
 
@@ -297,14 +304,14 @@ external __POS_OF__ : 'a -> (string * int * int * int) * 'a = "%loc_POS"
 
 (** {1 Composition operators} *)
 
-external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply"
+external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply" [@@pure]
 (** Reverse-application operator: [x |> f |> g] is exactly equivalent
  to [g (f (x))].
  Left-associative operator, see {!Ocaml_operators} for more information.
  @since 4.01
 *)
 
-external ( @@ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
+external ( @@ ) : ('a -> 'b) -> 'a -> 'b = "%apply" [@@pure]
 (** Application operator: [g @@ f @@ x] is exactly equivalent to
  [g (f (x))].
  Right-associative operator, see {!Ocaml_operators} for more information.
@@ -679,7 +686,7 @@ val char_of_int : int -> char
 
 (** {1 Unit operations} *)
 
-external ignore : 'a -> unit = "%ignore"
+external ignore : 'a -> unit = "%ignore" [@@pure]
 (** Discard the value of its argument and return [()].
    For instance, [ignore(f x)] discards the result of
    the side-effecting function [f].  It is equivalent to
@@ -767,10 +774,10 @@ external float_of_string : string -> float = "caml_float_of_string"
 
 (** {1 Pair operations} *)
 
-external fst : 'a * 'b -> 'a = "%field0"
+external fst : 'a * 'b -> 'a = "%field0" [@@pure]
 (** Return the first component of a pair. *)
 
-external snd : 'a * 'b -> 'b = "%field1"
+external snd : 'a * 'b -> 'b = "%field1" [@@pure]
 (** Return the second component of a pair. *)
 
 
@@ -779,7 +786,7 @@ external snd : 'a * 'b -> 'b = "%field1"
    More list operations are provided in module {!List}.
 *)
 
-val ( @ ) : 'a list -> 'a list -> 'a list
+val ( @ ) : 'a list -> 'a list -> 'a list [@@pure]
 (** List concatenation.  Not tail-recursive (length of the first argument).
   Right-associative operator, see {!Ocaml_operators} for more information.
 *)
@@ -1261,6 +1268,8 @@ type ('a, 'b, 'c, 'd) format4 = ('a, 'b, 'c, 'c, 'c, 'd) format6
 
 type ('a, 'b, 'c) format = ('a, 'b, 'c, 'c) format4
 
+[@@@pure]
+
 val string_of_format : ('a, 'b, 'c, 'd, 'e, 'f) format6 -> string
 (** Converts a format string into a string. *)
 
@@ -1286,9 +1295,11 @@ val ( ^^ ) :
   Right-associative operator, see {!Ocaml_operators} for more information.
 *)
 
+[@@@impure]
+
 (** {1 Program termination} *)
 
-val exit : int -> 'a
+val exit : int -> 'a [@@pure]
 (** Terminate the process, returning the given status code
    to the operating system: usually 0 to indicate no errors,
    and a small positive integer to indicate failure.

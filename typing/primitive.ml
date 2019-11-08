@@ -168,7 +168,8 @@ let print p osig_val_decl =
   in
   let all_unboxed = for_all is_unboxed in
   let all_untagged = for_all is_untagged in
-  let attrs = if p.prim_alloc then [] else [oattr_noalloc] in
+  let attrs = osig_val_decl.oval_attributes in
+  let attrs = if p.prim_alloc then attrs else oattr_noalloc :: attrs in
   let attrs =
     if all_unboxed then
       oattr_unboxed :: attrs
