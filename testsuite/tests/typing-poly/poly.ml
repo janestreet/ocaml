@@ -1151,11 +1151,13 @@ Error: Signature mismatch:
        is not included in
          sig
            val f : < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > -> unit
+             [@@pure]
          end
        Values do not match:
          val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit [@@pure]
        is not included in
          val f : < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > -> unit
+           [@@pure]
 |}];;
 
 module M : sig type 'a t type u = <m: 'a. 'a t> end
@@ -1167,8 +1169,8 @@ module M : sig type 'a t val f : <m: 'a. 'a t> -> int end
 = struct type 'a t = int let f x = x#m end;;
 [%%expect {|
 module M : sig type 'a t type u = < m : 'a. 'a t > end
-module M : sig type 'a t val f : < m : 'a. 'a t > -> int end
-module M : sig type 'a t val f : < m : 'a. 'a t > -> int end
+module M : sig type 'a t val f : < m : 'a. 'a t > -> int [@@pure] end
+module M : sig type 'a t val f : < m : 'a. 'a t > -> int [@@pure] end
 |}];;
 
 let f x y =

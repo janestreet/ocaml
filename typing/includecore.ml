@@ -33,7 +33,8 @@ let value_descriptions ~loc env name
     loc
     vd1.val_attributes vd2.val_attributes
     name;
-  if vd2.val_pure && not vd1.val_pure then raise Dont_match;
+  if vd2.val_pure && not vd1.val_pure && Ctype.free_variables vd2.val_type <> []
+  then raise Dont_match;
   if Ctype.moregeneral env true vd1.val_type vd2.val_type then begin
     match (vd1.val_kind, vd2.val_kind) with
         (Val_prim p1, Val_prim p2) ->

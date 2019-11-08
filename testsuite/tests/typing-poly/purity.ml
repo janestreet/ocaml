@@ -175,8 +175,13 @@ let k x y = x;;
 class c (x : int) =
   let id x = x in
   object method m = let id = k id x in (id 1, id true) end;;
-[%%expect]
+[%%expect{|
+val k : 'a -> 'b -> 'a [@@pure] = <fun>
+class c : int -> object method m : int * bool end
+|}]
 class d (x : int) =
   let id x = x in
   object val x = x method m = let id = k id x in (id 1, id true) end;;
-[%%expect]
+[%%expect{|
+class d : int -> object val x : int method m : int * bool end
+|}]

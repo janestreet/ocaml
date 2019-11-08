@@ -1386,7 +1386,9 @@ let has_pure_attribute attrs =
 let transl_value_decl env loc valdecl =
   let cty = Typetexp.transl_type_scheme env valdecl.pval_type in
   let ty = cty.ctyp_type in
-  let pure = has_pure_attribute valdecl.pval_attributes in
+  let pure =
+    has_pure_attribute valdecl.pval_attributes || Ctype.free_variables ty = []
+  in
   let v =
   match valdecl.pval_prim with
     [] when Env.is_in_signature env ->
