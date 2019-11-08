@@ -131,7 +131,7 @@ val mkref : mkref -> 'a -> 'a ref = <fun>
 (* recursive call to id impure due to polymorphism *)
 let rec id : 'a. 'a -> 'a = fun x -> id x;;
 [%%expect{|
-val id : 'a -> 'a = <fun>
+val id : 'a -> 'a [@@pure] = <fun>
 |}]
 (* ok if not called *)
 let rec id : 'a. 'a -> 'a = fun x -> x;;

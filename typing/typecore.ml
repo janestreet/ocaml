@@ -4401,7 +4401,7 @@ and type_let
         in unify_pat env pat (type_approx env binding.pvb_expr))
       pat_list spat_sexp_list;
   let has_poly_pat = List.exists has_poly_pattern pat_list in
-  let impure_rec = is_recursive && (!has_poly_rec || has_poly_pat) in
+  let impure_rec = is_recursive && has_poly_pat in
   let rec_env =
     if impure_rec then make_bindings_impure new_env pvs else new_env in
   (* Polymorphic variant processing *)
@@ -4520,7 +4520,7 @@ and type_let
       attrs_list
       pat_list
   in
-  let exp_list =
+  let mk_exp_list exp_env =
     List.map2
       (fun {pvb_expr=sexp; pvb_attributes; _} (pat, slot) ->
         let sexp =
@@ -4546,6 +4546,20 @@ and type_let
             Builtin_attributes.warning_scope pvb_attributes (fun () ->
               type_expect exp_env sexp (mk_expected pat.pat_type)))
       spat_sexp_list pat_slot_list in
+  let exp_list = mk_exp_list exp_env in
+  (* Purity *)
+  let exp_list, new_env =
+    let pure =
+      not has_poly_pat && List.for_all (fun e -> e.exp_pure) exp_list in
+    if pure then exp_list, new_env else
+    let impure_env =
+      if impure_rec then rec_env else make_bindings_impure new_env pvs in
+    if not is_recursive then exp_list, impure_env else
+    let exp_list = mk_exp_list impure_env in
+    let pure =
+      not has_poly_pat && List.for_all (fun e -> e.exp_pure) exp_list in
+    exp_list, if pure then new_env else impure_env
+  in
   current_slot := None;
   if is_recursive && not !rec_needed then begin
     let {pvb_pat; pvb_attributes} = List.hd spat_sexp_list in
@@ -4580,12 +4594,6 @@ and type_let
        - : 'a array -> int -> 'a = <fun>
      ]} *)
   List.iter (fun exp -> generalize exp.exp_type) exp_list;
-  (* Purity *)
-  let pure = not has_poly_pat && List.for_all (fun e -> e.exp_pure) exp_list in
-  let new_env =
-    if pure then new_env else
-    if impure_rec then rec_env else make_bindings_impure new_env pvs
-  in
   let l = List.combine pat_list exp_list in
   let l =
     List.map2

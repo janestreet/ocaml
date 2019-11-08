@@ -1320,31 +1320,69 @@ let rec f : 'a. 'a -> _ = fun x -> 1 and g x = f x;;
 type 'a t = Leaf of 'a | Node of ('a * 'a) t;;
 let rec depth : 'a. 'a t -> _ =
   function Leaf _ -> 1 | Node x -> 1 + depth x;;
+[%%expect {|
+val f : 'a -> int [@@pure] = <fun>
+val g : 'a -> int [@@pure] = <fun>
+type 'a t = Leaf of 'a | Node of ('a * 'a) t
+val depth : 'a t -> int [@@pure] = <fun>
+|}]
 let rec depth : 'a. 'a t -> _ =
   function Leaf _ -> 1 | Node x -> 1 + d x
 and d x = depth x;; (* fails *)
+[%%expect{|
+Line 2, characters 2-42:
+2 |   function Leaf _ -> 1 | Node x -> 1 + d x
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: This definition has type 'a t -> int which is less general than
+         'a0. 'a0 t -> int
+|}]
 let rec depth : 'a. 'a t -> _ =
   function Leaf x -> x | Node x -> 1 + depth x;; (* fails *)
+[%%expect{|
+Line 2, characters 2-46:
+2 |   function Leaf x -> x | Node x -> 1 + depth x;; (* fails *)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: This definition has type int t -> int which is less general than
+         'a. 'a t -> int
+|}]
 let rec depth : 'a. 'a t -> _ =
   function Leaf x -> x | Node x -> depth x;; (* fails *)
+[%%expect{|
+Line 2, characters 2-42:
+2 |   function Leaf x -> x | Node x -> depth x;; (* fails *)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: This definition has type 'a t -> 'a which is less general than
+         'a0. 'a0 t -> 'a
+|}]
 let rec depth : 'a 'b. 'a t -> 'b =
   function Leaf x -> x | Node x -> depth x;; (* fails *)
+[%%expect{|
+Line 2, characters 2-42:
+2 |   function Leaf x -> x | Node x -> depth x;; (* fails *)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: This definition has type 'b. 'b t -> 'b which is less general than
+         'a 'b. 'a t -> 'b
+|}]
 let rec r : 'a. 'a list * 'b list ref = [], ref []
 and q () = r;;
 let f : 'a. _ -> _ = fun x -> x;;
 let zero : 'a. [> `Int of int | `B of 'a] as 'a  = `Int 0;; (* ok *)
+[%%expect{|
+val r : 'a list * '_b list ref = ([], {contents = []})
+val q : unit -> 'a list * '_b list ref = <fun>
+val f : 'a -> 'a [@@pure] = <fun>
+val zero : [> `B of 'a | `Int of int ] as 'a [@@pure] = `Int 0
+|}]
 let zero : 'a. [< `Int of int] as 'a = `Int 0;; (* fails *)
-[%%expect {|
-val f : 'a -> int = <fun>
-val g : 'a -> int = <fun>
-type 'a t = Leaf of 'a | Node of ('a * 'a) t
-val depth : 'a t -> int = <fun>
-Line 6, characters 2-42:
-6 |   function Leaf _ -> 1 | Node x -> 1 + d x
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This definition has type 'a t -> int which is less general than
-         'a0. 'a0 t -> int
-|}];;
+[%%expect{|
+Line 1, characters 39-45:
+1 | let zero : 'a. [< `Int of int] as 'a = `Int 0;; (* fails *)
+                                           ^^^^^^
+Error: This expression has type [> `Int of int ]
+       but an expression was expected of type [< `Int of int ]
+       The second variant type is bound to the universal type variable 'a,
+       it may not allow the tag(s) `Int
+|}]
 
 (* compare with records (should be the same) *)
 type t = {f: 'a. [> `Int of int | `B of 'a] as 'a}
@@ -1368,8 +1406,8 @@ Error: This expression has type [> `Int of int ]
 let rec id : 'a. 'a -> 'a = fun x -> x
 and neg i b = (id (-i), id (not b));;
 [%%expect {|
-val id : 'a -> 'a = <fun>
-val neg : int -> bool -> int * bool = <fun>
+val id : 'a -> 'a [@@pure] = <fun>
+val neg : int -> bool -> int * bool [@@pure] = <fun>
 |}];;
 
 (* De Xavier *)
@@ -1388,8 +1426,9 @@ and transf_alist : 'a. _ -> ('a*t) list -> ('a*t) list = fun f -> function
   | (k,v)::tl -> (k, transf f v) :: transf_alist f tl
 ;;
 [%%expect {|
-val transf : (int -> t) -> t -> t = <fun>
-val transf_alist : (int -> t) -> ('a * t) list -> ('a * t) list = <fun>
+val transf : (int -> t) -> t -> t [@@pure] = <fun>
+val transf_alist : (int -> t) -> ('a * t) list -> ('a * t) list [@@pure] =
+  <fun>
 |}];;
 
 (* PR#4862 *)
