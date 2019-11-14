@@ -24,6 +24,7 @@ CAMLextern value *caml_young_start, *caml_young_end;
 CAMLextern value *caml_young_alloc_start, *caml_young_alloc_end;
 CAMLextern value *caml_young_ptr, *caml_young_limit;
 CAMLextern value *caml_young_trigger;
+CAMLextern double caml_young_aging_ratio;
 extern asize_t caml_minor_heap_wsz;
 extern int caml_in_minor_collection;
 extern double caml_extra_heap_resources_minor;
@@ -59,7 +60,7 @@ struct caml_custom_table CAML_TABLE_STRUCT(struct caml_custom_elt);
 CAMLextern struct caml_custom_table caml_custom_table;
 
 extern void caml_set_minor_heap_size (asize_t); /* size in bytes */
-extern void caml_empty_minor_heap (void);
+extern void caml_empty_minor_heap (double aging_ratio);
 CAMLextern void caml_gc_dispatch (void);
 CAMLextern void garbage_collection (void); /* runtime/signals_nat.c */
 extern void caml_realloc_ref_table (struct caml_ref_table *);

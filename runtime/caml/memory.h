@@ -220,7 +220,7 @@ int caml_page_table_initialize(mlsize_t bytesize);
     caml_young_ptr -= Whsize_wosize (wosize); \
   } \
   Hd_hp (caml_young_ptr) = \
-    Make_header_with_profinfo ((wosize), (tag), Caml_black, profinfo); \
+    Make_header_with_profinfo ((wosize), (tag), Caml_white, profinfo); \
   (result) = Val_hp (caml_young_ptr); \
   DEBUG_clear ((result), (wosize)); \
 }while(0)

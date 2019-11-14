@@ -379,6 +379,7 @@ CAMLprim value caml_gc_get(value v)
 }
 
 #define Max(x,y) ((x) < (y) ? (y) : (x))
+#define Min(x,y) ((x) < (y) ? (x) : (y))
 
 static uintnat norm_pfree (uintnat p)
 {
@@ -395,6 +396,12 @@ static intnat norm_minsize (intnat s)
   if (s < Minor_heap_min) s = Minor_heap_min;
   if (s > Minor_heap_max) s = Minor_heap_max;
   return s;
+}
+
+static uintnat norm_aging (uintnat ratio)
+{
+  /* [ratio] is unsigned, it cannot be less than 0. */
+  return Min (ratio, 100);
 }
 
 static uintnat norm_window (intnat w)
@@ -421,6 +428,7 @@ CAMLprim value caml_gc_set(value v)
   asize_t newminwsz;
   uintnat oldpolicy;
   uintnat new_custom_maj, new_custom_min, new_custom_sz;
+  double new_aging_ratio;
   CAML_INSTR_SETUP (tmr, "");
 
   caml_verb_gc = Long_val (Field (v, 3));
@@ -498,6 +506,15 @@ CAMLprim value caml_gc_set(value v)
     }
   }
 
+  /* This field was added in 4.11.0. */
+  if (Wosize_val (v) >= 12){
+    new_aging_ratio = norm_aging (Field (v, 11)) / 100.;
+    if (new_aging_ratio != caml_young_aging_ratio){
+      caml_young_aging_ratio = new_aging_ratio;
+      caml_gc_message (0x20, "New aging ratio: %.2f\n",
+                       caml_young_aging_ratio);
+    }
+  }
     /* Minor heap size comes last because it will trigger a minor collection
        (thus invalidating [v]) and it can raise [Out_of_memory]. */
   newminwsz = norm_minsize (Long_val (Field (v, 0)));
@@ -540,7 +557,7 @@ CAMLprim value caml_gc_major(value v)
   CAML_INSTR_SETUP (tmr, "");
   CAMLassert (v == Val_unit);
   caml_gc_message (0x1, "Major GC cycle requested\n");
-  caml_empty_minor_heap ();
+  caml_empty_minor_heap (0.);
   caml_finish_major_cycle ();
   test_and_compact ();
   caml_final_do_calls ();
@@ -553,10 +570,10 @@ CAMLprim value caml_gc_full_major(value v)
   CAML_INSTR_SETUP (tmr, "");
   CAMLassert (v == Val_unit);
   caml_gc_message (0x1, "Full major GC cycle requested\n");
-  caml_empty_minor_heap ();
+  caml_empty_minor_heap (0.);
   caml_finish_major_cycle ();
-  caml_final_do_calls ();
-  caml_empty_minor_heap ();
+  CAMLassert (caml_gc_phase == Phase_idle);
+  caml_empty_minor_heap (0.);
   caml_finish_major_cycle ();
   test_and_compact ();
   caml_final_do_calls ();
@@ -578,10 +595,9 @@ CAMLprim value caml_gc_compaction(value v)
   CAML_INSTR_SETUP (tmr, "");
   CAMLassert (v == Val_unit);
   caml_gc_message (0x10, "Heap compaction requested\n");
-  caml_empty_minor_heap ();
+  caml_empty_minor_heap (0.);
   caml_finish_major_cycle ();
-  caml_final_do_calls ();
-  caml_empty_minor_heap ();
+  caml_empty_minor_heap (0.);
   caml_finish_major_cycle ();
   caml_compact_heap ();
   caml_final_do_calls ();
@@ -628,7 +644,7 @@ void caml_init_gc (uintnat minor_size, uintnat major_size,
                    uintnat major_incr, uintnat percent_fr,
                    uintnat percent_m, uintnat window,
                    uintnat custom_maj, uintnat custom_min,
-                   uintnat custom_bsz)
+                   uintnat custom_bsz, uintnat aging_percent)
 {
   uintnat major_heap_size =
     Bsize_wsize (caml_normalize_heap_increment (major_size));
@@ -640,6 +656,7 @@ void caml_init_gc (uintnat minor_size, uintnat major_size,
   if (caml_page_table_initialize(Bsize_wsize(minor_size) + major_heap_size)){
     caml_fatal_error ("cannot initialize page table");
   }
+  caml_young_aging_ratio = norm_aging (aging_percent) / 100.;
   caml_set_minor_heap_size (Bsize_wsize (norm_minsize (minor_size)));
   caml_major_heap_increment = major_incr;
   caml_percent_free = norm_pfree (percent_fr);
