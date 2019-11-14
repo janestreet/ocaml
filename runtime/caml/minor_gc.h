@@ -70,6 +70,7 @@ extern void caml_alloc_ephe_table (struct caml_ephe_ref_table *,
 extern void caml_realloc_custom_table (struct caml_custom_table *);
 extern void caml_alloc_custom_table (struct caml_custom_table *,
                                      asize_t, asize_t);
+extern void caml_oldify_init (void);
 extern void caml_oldify_one (value, value *);
 extern void caml_oldify_mopup (void);
 
