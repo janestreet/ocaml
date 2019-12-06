@@ -370,7 +370,7 @@ let op_is_pure = function
   | Iextcall _ | Istackoffset _ | Istore _ | Ialloc _
   | Iintop(Icheckbound _) | Iintop_imm(Icheckbound _, _) -> false
   | Ispecific(Ilea _|Isextend32|Izextend32) -> true
-  | Ispecific _ -> false
+  | Ispecific _ | Iprobe _ | Iprobe_is_enabled _-> false
   | _ -> true
 
 (* Layout of the stack frame *)

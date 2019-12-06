@@ -102,6 +102,9 @@ type error =
   | Unrefuted_pattern of pattern
   | Invalid_extension_constructor_payload
   | Not_an_extension_constructor
+  | Probe_format
+  | Probe_too_many_args
+  | Probe_argument_has_label
   | Literal_overflow of string
   | Unknown_literal of string * char
   | Illegal_letrec_pat
@@ -1827,6 +1830,7 @@ let rec is_nonexpansive exp =
   | Texp_constant _
   | Texp_unreachable
   | Texp_function _
+  | Texp_probe_is_enabled _
   | Texp_array [] -> true
   | Texp_let(_rec_flag, pat_exp_list, body) ->
       List.for_all (fun vb -> is_nonexpansive vb.vb_expr) pat_exp_list &&
@@ -1852,6 +1856,7 @@ let rec is_nonexpansive exp =
            is_nonexpansive_opt c_guard && is_nonexpansive c_rhs
            && not (contains_exception_pat c_lhs)
         ) cases
+  | Texp_probe (_, args) -> List.for_all is_nonexpansive args
   | Texp_tuple el ->
       List.for_all is_nonexpansive el
   | Texp_construct( _, _, el) ->
@@ -2113,7 +2118,7 @@ let check_partial_application statement exp =
             | Texp_setinstvar _ | Texp_override _ | Texp_assert _
             | Texp_lazy _ | Texp_object _ | Texp_pack _ | Texp_unreachable
             | Texp_extension_constructor _ | Texp_ifthenelse (_, _, None)
-            | Texp_function _ ->
+            | Texp_function _ | Texp_probe _ | Texp_probe_is_enabled _ ->
                 check_statement ()
             | Texp_match (_, cases, _) ->
                 List.iter (fun {c_rhs; _} -> check c_rhs) cases
@@ -3446,8 +3451,59 @@ and type_expect_
       | _ ->
           raise (Error (loc, env, Invalid_extension_constructor_payload))
       end
+  | Pexp_extension ({ txt = "probe"; _ }, payload) ->
+    let probe name args =
+      rue {
+        exp_desc = Texp_probe(name, args);
+        exp_loc = loc; exp_extra = [];
+        exp_type = instance Predef.type_unit;
+        exp_attributes = sexp.pexp_attributes;
+        exp_env = env }
+    in
+    begin match payload with
+    | PStr ([{ pstr_desc =
+                Pstr_eval
+                  ({pexp_desc=(Pexp_constant (Pconst_string(name,None))) ; _ } ,
+                   _)}]) ->
+      probe name []
+    | PStr
+        ([{ pstr_desc =
+              Pstr_eval
+                ({ pexp_desc =
+                     (Pexp_apply
+                        ({ pexp_desc=(Pexp_constant (Pconst_string(name,None))); _ }
+                        , args_with_labels))
+                 ; _ }
+                , _)}]) ->
+      if List.length args_with_labels > 12 then
+        raise (Error (loc, env, Probe_too_many_args));
+      let args =
+        List.map (function
+          | (Nolabel, arg) ->
+            type_expect env arg (mk_expected (Ctype.newvar ()))
+          | _ ->
+            raise (Error (loc, env, Probe_argument_has_label)))
+          args_with_labels
+      in
+      probe name args
+    | _ -> raise (Error (loc, env, Probe_format))
+    end
+  | Pexp_extension ({ txt = "probe_is_enabled"; _ }, payload) ->
+    begin match payload with
+    | PStr ([{ pstr_desc =
+                 Pstr_eval
+                   ({pexp_desc=(Pexp_constant (Pconst_string(name,None))) ; _ } ,
+                    _)}]) ->
+      rue {
+        exp_desc = Texp_probe_is_enabled(name);
+        exp_loc = loc; exp_extra = [];
+        exp_type = instance Predef.type_bool;
+        exp_attributes = sexp.pexp_attributes;
+        exp_env = env }
+    | _ -> raise (Error (loc, env, Probe_format))
+    end
   | Pexp_extension ext ->
-      raise (Error_forward (Builtin_attributes.error_of_extension ext))
+    raise (Error_forward (Builtin_attributes.error_of_extension ext))
 
   | Pexp_unreachable ->
       re { exp_desc = Texp_unreachable;
@@ -5200,6 +5256,15 @@ let report_error ~loc env = function
   | Not_an_extension_constructor ->
       Location.errorf ~loc
         "This constructor is not an extension constructor."
+  | Probe_format ->
+    Location.errorf ~loc
+      "Probe should consist of a string literal name followed by expressions"
+  | Probe_too_many_args ->
+    Location.errorf ~loc
+      "Probes can have at most 12 arguments"
+  | Probe_argument_has_label ->
+    Location.errorf ~loc
+      "Probe arguments cannot have labels"
   | Literal_overflow ty ->
       Location.errorf ~loc
         "Integer literal exceeds the range of representable integers of type %s"

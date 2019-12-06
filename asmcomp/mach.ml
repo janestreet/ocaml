@@ -63,6 +63,8 @@ type operation =
   | Ispecific of Arch.specific_operation
   | Iname_for_debugger of { ident : Backend_var.t; which_parameter : int option;
       provenance : unit option; is_assignment : bool; }
+  | Iprobe of string
+  | Iprobe_is_enabled of string
 
 type instruction =
   { desc: instruction_desc;
@@ -169,7 +171,8 @@ let spacetime_node_hole_pointer_is_live_before insn =
   match insn.desc with
   | Iop op ->
     begin match op with
-    | Icall_ind _ | Icall_imm _ | Itailcall_ind _ | Itailcall_imm _ -> true
+    | Icall_ind _ | Icall_imm _ | Itailcall_ind _ | Itailcall_imm _
+    | Iprobe _ | Iprobe_is_enabled _ -> true
     | Iextcall { alloc; } -> alloc
     | Ialloc _ ->
       (* Allocations are special: the call to [caml_call_gc] requires some

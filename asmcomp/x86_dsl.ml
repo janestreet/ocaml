@@ -89,6 +89,8 @@ module D = struct
   let extrn s ptr = directive (External (s, ptr))
   let file ~file_num ~file_name = directive (File (file_num, file_name))
   let global s = directive (Global s)
+  let hidden s = directive (Hidden s)
+  let weak s = directive (Weak s)
   let indirect_symbol s = directive (Indirect_symbol s)
   let label ?(typ = NONE) s = directive (NewLabel (s, typ))
   let loc ~file_num ~line ~col = directive (Loc (file_num, line, col))

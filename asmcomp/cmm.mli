@@ -146,6 +146,8 @@ and operation =
                    then the index.
                    It results in a bounds error if the index is greater than
                    or equal to the bound. *)
+  | Cprobe of string
+  | Cprobe_is_enabled of string
 
 (** Every basic block should have a corresponding [Debuginfo.t] for its
     beginning. *)

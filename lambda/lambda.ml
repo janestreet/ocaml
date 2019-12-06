@@ -142,6 +142,9 @@ type primitive =
   | Pint_as_pointer
   (* Inhibition of optimisation *)
   | Popaque
+  (* USDT probe *)
+  | Pprobe of string
+  | Pprobe_is_enabled of string
 
 and integer_comparison =
     Ceq | Cne | Clt | Cgt | Cle | Cge

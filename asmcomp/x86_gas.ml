@@ -253,6 +253,8 @@ let print_line b = function
       else bprintf b "\t.ascii\t\"%s\"" (string_of_string_literal s)
   | Comment s -> bprintf b "\t\t\t\t/* %s */" s
   | Global s -> bprintf b "\t.globl\t%s" s;
+  | Hidden s -> bprintf b "\t.hidden\t%s" s;
+  | Weak s -> bprintf b "\t.weak\t%s" s;
   | Long n -> bprintf b "\t.long\t%a" cst n
   | NewLabel (s, _) -> bprintf b "%s:" s
   | Quad n -> bprintf b "\t.quad\t%a" cst n

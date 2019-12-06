@@ -168,6 +168,9 @@ type error =
   | Unrefuted_pattern of Typedtree.pattern
   | Invalid_extension_constructor_payload
   | Not_an_extension_constructor
+  | Probe_format
+  | Probe_too_many_args
+  | Probe_argument_has_label
   | Literal_overflow of string
   | Unknown_literal of string * char
   | Illegal_letrec_pat

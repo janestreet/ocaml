@@ -192,6 +192,8 @@ type asm_line =
   | Bytes of string
   | Comment of string
   | Global of string
+  | Hidden of string
+  | Weak of string
   | Long of constant
   | NewLabel of string * data_type
   | Quad of constant

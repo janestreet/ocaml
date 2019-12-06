@@ -503,7 +503,58 @@ let expression sub exp =
                                  (Exp.construct ~loc (map_loc sub lid) None)
                              ])
     | Texp_open (od, exp) ->
-        Pexp_open (sub.open_declaration sub od, sub.expr sub exp)
+      Pexp_open (sub.open_declaration sub od, sub.expr sub exp)
+    | Texp_probe (name, args) ->
+      begin match args with
+      | [] ->
+        Pexp_extension
+          ({ txt = "probe"; loc}
+          , PStr ([
+               { pstr_desc=
+                   Pstr_eval
+                     ( { pexp_desc=(Pexp_constant (Pconst_string(name,None)))
+                       ; pexp_loc=loc
+                       ; pexp_loc_stack =[]
+                       ; pexp_attributes=[]
+                       }
+                     , [])
+               ; pstr_loc = loc
+               }]))
+      | args ->
+        Pexp_extension
+          ({ txt = "probe"; loc}
+          , PStr ([
+               { pstr_desc=
+                   Pstr_eval
+                     ( { pexp_desc=(Pexp_apply (
+                         { pexp_desc=(Pexp_constant (Pconst_string(name,None)))
+                         ; pexp_loc=loc
+                         ; pexp_loc_stack =[]
+                         ; pexp_attributes=[]
+                         }
+                       , List.map (fun arg -> (Nolabel, sub.expr sub arg)) args))
+                       ; pexp_loc=loc
+                       ; pexp_loc_stack =[]
+                       ; pexp_attributes=[]
+                       }
+                     , [])
+               ; pstr_loc = loc
+               }]))
+      end
+    | Texp_probe_is_enabled name ->
+        Pexp_extension
+          ({ txt = "probe_is_enabled"; loc}
+          , PStr([
+               { pstr_desc=
+                   Pstr_eval
+                     ( { pexp_desc=(Pexp_constant (Pconst_string(name,None)))
+                       ; pexp_loc=loc
+                       ; pexp_loc_stack =[]
+                       ; pexp_attributes=[]
+                       }
+                     , [])
+               ; pstr_loc = loc
+               }]))
   in
   List.fold_right (exp_extra sub) exp.exp_extra
     (Exp.mk ~loc ~attrs desc)

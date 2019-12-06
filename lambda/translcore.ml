@@ -565,6 +565,11 @@ and transl_exp0 e =
           Llet(pure, Pgenval, oid,
                !transl_module Tcoerce_none None od.open_expr, body)
       end
+  | Texp_probe (name, args) ->
+    let ll = transl_list args in
+    Lprim(Pprobe name, ll, e.exp_loc)
+  | Texp_probe_is_enabled name ->
+    Lprim(Pprobe_is_enabled name, [], e.exp_loc)
 
 and pure_module m =
   match m.mod_desc with
