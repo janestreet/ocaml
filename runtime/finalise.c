@@ -307,7 +307,7 @@ static void generic_final_minor_update (struct finalisable * final)
 {
   uintnat i, j, k;
   uintnat todo_count = 0;
-  uintnat first_young = 0;
+  uintnat first_young;
 
   CAMLassert (final->old <= final->young);
   for (i = final->old; i < final->young; i++){
@@ -326,8 +326,6 @@ static void generic_final_minor_update (struct finalisable * final)
       - j : index in final_table, before j all the values are alive,
             next available slot.
       - k : index in to_do_tl, next available slot.
-      - first_young: either 0 or the lowest index of the values that remain
-            in the minor heap
   */
   if (todo_count > 0){
     alloc_to_do (todo_count);
@@ -338,35 +336,41 @@ static void generic_final_minor_update (struct finalisable * final)
       CAMLassert (Is_block (v));
       CAMLassert (Is_in_heap_or_young (v));
       CAMLassert (Tag_val (v) != Forward_tag);
-      if(Is_young(v)){
-        if (Hd_val(v) == 0){
-          /* moved to the major heap */
-          final->table[j].fun = final->table[i].fun;
-          final->table[j].val = Field(v,0);
-          final->table[j].offset = final->table[i].offset;
-          ++j;
-        }else if (Is_black_val (v)
-                  && (value *) Hp_val (v) >= caml_young_ptr
-                  && (value *) Hp_val (v) < caml_young_alloc_end){
-          if (first_young == 0) first_young = j;
-          /* stays in the minor heap */
-          final->table[j++] = final->table[i];
-        }else{
-          /** dead */
-          to_do_tl->item[k] = final->table[i];
-          /* The finalisation function is called with unit not with the value */
-          to_do_tl->item[k].val = Val_unit;
-          to_do_tl->item[k].offset = 0;
-          k++;
-        }
+      if(Is_young(v) && Hd_val(v) != 0 && !Is_black_val(v)){
+        /** dead */
+        to_do_tl->item[k] = final->table[i];
+        /* The finalisation function is called with unit not with the value */
+        to_do_tl->item[k].val = Val_unit;
+        to_do_tl->item[k].offset = 0;
+        k++;
+      }else{
+        /** alive */
+        final->table[j++] = final->table[i];
       }
     }
     CAMLassert (i == final->young);
     CAMLassert (k == todo_count);
-    final->old = first_young;
     final->young = k;
     CAMLassert (to_do_tl->size == todo_count);
   }
+
+  first_young = final->young;
+  /** update the minor value to the copied major value */
+  for (i = final->old; i < final->young; i++){
+    value v = final->table[i].val;
+    CAMLassert (Is_block (final->table[i].val));
+    CAMLassert (Is_in_heap_or_young (final->table[i].val));
+    if (Is_young(final->table[i].val)) {
+      if(Hd_val(v) == 0){
+        /* moved to the major heap */
+        final->table[i].val = Field(v,0);
+      } else {
+        /* stays in the minor heap */
+        if (first_young > i) first_young = i;
+      }
+    }
+  }
+  final->old = first_young;
 
   /** check invariant */
 #ifdef DEBUG
