@@ -104,6 +104,13 @@ static void generic_final_update (struct finalisable * final, int darken_value)
     }
   }
 
+#ifdef DEBUG
+  /* Check that we are not missing any values in the recent set */
+  for (i = final->old; i < final->young; i++){
+    CAMLassert (Is_young (final->table[i].val) || !Is_white_val (final->table[i].val));
+  }
+#endif
+
   /** invariant:
       - 0 <= j <= i /\ 0 <= k <= i /\ 0 <= k <= todo_count
       - i : index in final_table, before i all the values are black
