@@ -383,11 +383,7 @@ static inline int ephe_check_alive_data(struct caml_ephe_ref_elt *re){
   for (i = CAML_EPHE_FIRST_KEY; i < Wosize_val(re->ephe); i++){
     child = Field (re->ephe, i);
     if(child != caml_ephe_none
-       && Is_block (child) && Is_young (child)
-       && Hd_val (child) != 0
-       && !(Is_black_val (child)
-            && (value *) Hp_val (child) >= caml_young_alloc_start
-            && (value *) Hp_val (child) < caml_young_alloc_end)){
+       && Is_block (child) && Is_young_and_dead (child)){
       /* Value not copied to major heap and not retained in minor heap. */
       return 0;
     }
@@ -452,12 +448,9 @@ void caml_oldify_mopup (void)
       if (re->offset == 1){
         value *data = &Field(re->ephe,1);
         if (*data != caml_ephe_none && Is_block (*data) && Is_young (*data)){
-          hd = Hd_val (*data);
-          if (hd == 0){ /* Value copied to major heap */
+          if (Hd_val (*data) == 0){ /* Value copied to major heap */
             *data = Field (*data, 0);
-          }else if (Is_black_hd (hd)
-                    && (value *) Hp_val (*data) >= caml_young_alloc_start
-                    && (value *) Hp_val (*data) < caml_young_alloc_end){
+          }else if (Kept_in_minor_heap (*data)){
             CAMLassert ((value *) Hp_val (*data) >= caml_young_ptr);
             /* Stays in minor heap. */
           } else {
@@ -529,9 +522,7 @@ void caml_empty_minor_heap (double aging_ratio)
       if (v != caml_ephe_none && Is_block (v) && Is_young (v)){
         if (Hd_val (v) == 0){ /* Value copied to major heap */
           *key = Field (v, 0);
-        }else if (Is_black_val (v)
-                  && (value *) Hp_val (v) >= caml_young_alloc_start
-                  && (value *) Hp_val (v) < caml_young_alloc_end){
+        }else if (Kept_in_minor_heap (v)){
           CAMLassert ((value *) Hp_val (v) >= caml_young_ptr);
           /* Value stays in the minor heap */
           *keep_re++ = *re;
@@ -552,9 +543,7 @@ void caml_empty_minor_heap (double aging_ratio)
     if (Hd_val (v) == 0){
       /* Block was copied to the major heap: adjust GC speed numbers. */
       caml_adjust_gc_speed(elt->mem, elt->max);
-    }else if (Is_black_val (v)
-              && (value *) Hp_val (v) >= caml_young_alloc_start
-              && (value *) Hp_val (v) < caml_young_alloc_end){
+    }else if (Kept_in_minor_heap (v)){
       CAMLassert ((value *) Hp_val (v) >= caml_young_ptr);
       /* Block remains in the minor heap: keep its entry. */
       CAMLassert (Tag_val (v) == Custom_tag);

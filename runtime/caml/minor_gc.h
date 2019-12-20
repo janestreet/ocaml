@@ -120,4 +120,14 @@ static inline void add_to_custom_table (struct caml_custom_table *tbl, value v,
   elt->max = max;
 }
 
+/* Convenience macros for minor_gc.c and finalise.c */
+#define Kept_in_minor_heap(v) \
+  (CAMLassert (Is_block (v)), \
+   Is_black_val (v) \
+   && (value *) Hp_val (v) >= caml_young_alloc_start \
+   && (value *) Hp_val (v) < caml_young_alloc_end)
+
+#define Is_young_and_dead(v) \
+  (Is_young (v) && Hd_val (v) != 0 && !Kept_in_minor_heap (v))
+
 #endif /* CAML_MINOR_GC_H */

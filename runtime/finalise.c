@@ -313,8 +313,7 @@ static void generic_final_minor_update (struct finalisable * final)
   for (i = final->old; i < final->young; i++){
     CAMLassert (Is_block (final->table[i].val));
     CAMLassert (Is_in_heap_or_young (final->table[i].val));
-    if (Is_young(final->table[i].val) && Hd_val(final->table[i].val) != 0
-        && !Is_black_val(final->table[i].val) ){
+    if (Is_young_and_dead (final->table[i].val)){
       ++ todo_count;
     }
   }
@@ -336,8 +335,7 @@ static void generic_final_minor_update (struct finalisable * final)
       CAMLassert (Is_block (v));
       CAMLassert (Is_in_heap_or_young (v));
       CAMLassert (Tag_val (v) != Forward_tag);
-      if(Is_young(v) && Hd_val(v) != 0 && !Is_black_val(v)){
-        /** dead */
+      if(Is_young_and_dead (v)){
         to_do_tl->item[k] = final->table[i];
         /* The finalisation function is called with unit not with the value */
         to_do_tl->item[k].val = Val_unit;
