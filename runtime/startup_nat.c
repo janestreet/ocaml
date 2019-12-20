@@ -111,7 +111,7 @@ value caml_startup_common(char_os **argv, int pooling)
 
   /* Determine options */
 #ifdef DEBUG
-  caml_verb_gc = 0x3F;
+  caml_verb_gc = 0;
 #endif
   caml_parse_ocamlrunparam();
 #ifdef DEBUG
@@ -137,7 +137,7 @@ value caml_startup_common(char_os **argv, int pooling)
                 caml_init_heap_chunk_sz, caml_init_percent_free,
                 caml_init_max_percent_free, caml_init_major_window,
                 caml_init_custom_major_ratio, caml_init_custom_minor_ratio,
-                caml_init_custom_minor_max_bsz);
+                caml_init_custom_minor_max_bsz, caml_init_aging_percent);
   init_static();
   caml_init_signals();
 #ifdef _WIN32

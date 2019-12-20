@@ -335,7 +335,7 @@ CAMLexport void caml_main(char_os **argv)
 
   /* Determine options */
 #ifdef DEBUG
-  caml_verb_gc = 0x3F;
+  caml_verb_gc = 0;
 #endif
   caml_parse_ocamlrunparam();
 #ifdef DEBUG
@@ -406,7 +406,7 @@ CAMLexport void caml_main(char_os **argv)
                 caml_init_heap_chunk_sz, caml_init_percent_free,
                 caml_init_max_percent_free, caml_init_major_window,
                 caml_init_custom_major_ratio, caml_init_custom_minor_ratio,
-                caml_init_custom_minor_max_bsz);
+                caml_init_custom_minor_max_bsz, caml_init_aging_percent);
   caml_init_stack (caml_init_max_stack_wsz);
   caml_init_atom_table();
   caml_init_backtrace();
@@ -434,6 +434,7 @@ CAMLexport void caml_main(char_os **argv)
   caml_close_channel(chan); /* this also closes fd */
   caml_stat_free(trail.section);
   /* Ensure that the globals are in the major heap. */
+  caml_oldify_init ();
   caml_oldify_one (caml_global_data, &caml_global_data);
   caml_oldify_mopup ();
   /* Initialize system libraries */
@@ -471,7 +472,7 @@ CAMLexport value caml_startup_code_exn(
 
   /* Determine options */
 #ifdef DEBUG
-  caml_verb_gc = 0x3F;
+  caml_verb_gc = 0;
 #endif
   caml_parse_ocamlrunparam();
 #ifdef DEBUG
@@ -500,7 +501,7 @@ CAMLexport value caml_startup_code_exn(
                 caml_init_heap_chunk_sz, caml_init_percent_free,
                 caml_init_max_percent_free, caml_init_major_window,
                 caml_init_custom_major_ratio, caml_init_custom_minor_ratio,
-                caml_init_custom_minor_max_bsz);
+                caml_init_custom_minor_max_bsz, caml_init_aging_percent);
   caml_init_stack (caml_init_max_stack_wsz);
   caml_init_atom_table();
   caml_init_backtrace();
@@ -527,6 +528,7 @@ CAMLexport value caml_startup_code_exn(
   /* Load the globals */
   caml_global_data = caml_input_value_from_block(data, data_size);
   /* Ensure that the globals are in the major heap. */
+  caml_oldify_init ();
   caml_oldify_one (caml_global_data, &caml_global_data);
   caml_oldify_mopup ();
   /* Record the sections (for caml_get_section_table in meta.c) */
