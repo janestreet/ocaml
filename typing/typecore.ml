@@ -1797,6 +1797,64 @@ let is_pure_record_label = function
   | Kept _ -> true
   | Overridden (_, e) -> e.exp_pure
 
+(*
+let rec is_pure_exp exp =
+  Ctype.free_variables exp.exp_type = [] ||
+  match exp.exp_desc with
+  | Texp_ident (_, _, vd) -> vd.val_pure
+  | Texp_constant _ -> true
+  | Texp_let (_, _, e) -> is_pure_exp e
+  | Texp_function {cases} -> List.for_all is_pure_case cases
+  | Texp_apply (e, argl) ->
+      is_pure_exp e &&
+      List.for_all (fun (_,arg) -> is_pure_option arg) argl
+  | Texp_match (_, cases, _) -> List.for_all is_pure_case cases
+  | Texp_try (e, cases) -> is_pure_exp e && List.for_all is_pure_case cases
+  | Texp_tuple el -> List.for_all is_pure_exp el
+  | Texp_construct (_, _, el) -> List.for_all is_pure_exp el
+  | Texp_variant (_, eo) -> is_pure_option eo
+  | Texp_record {fields; extended_expression} ->
+      is_pure_option extended_expression &&
+      Array.for_all (fun (_,e) -> is_pure_record_label e) fields &&
+      let {lbl_all}, _ = fields.(0) in
+      Array.for_all (fun l -> l.lbl_mut = Immutable) lbl_all
+  | Texp_field (e, _, label) ->
+      is_pure_exp e && not (is_poly_label label)
+  | Texp_ifthenelse (_, ifso, ifels)
+    -> is_pure_exp ifso && is_pure_option ifels
+  | Texp_sequence (_, e)
+  | Texp_letmodule (_, _, _, _, e)
+  | Texp_letexception (_, e)
+  | Texp_lazy e
+  | Texp_open (_, e)
+    -> is_pure_exp e
+  | Texp_unreachable
+    -> true
+  | Texp_setfield _
+  | Texp_array _
+  | Texp_while _
+  | Texp_for _
+  | Texp_send _
+  | Texp_new _
+  | Texp_instvar _
+  | Texp_setinstvar _
+  | Texp_override _
+  | Texp_assert _
+  | Texp_object _
+  | Texp_pack _
+  | Texp_letop _
+  | Texp_extension_constructor
+    -> false
+
+and is_pure_case c = is_pure_exp c.c_rhs
+
+and is_pure_option o = Option.fold ~none:true ~some:is_pure_exp o
+
+and is_pure_record_label = function
+  | Kept _ -> true
+  | Overridden (_, e) -> is_pure_exp e
+*)
+
 let maybe_expansive e = not (e.exp_pure || is_nonexpansive e)
 
 let is_poly_label label =
@@ -2378,7 +2436,7 @@ and type_expect_
         type_cases ~exception_allowed:true env arg.exp_type arg.exp_pure
           ty_expected true loc caselist
       in
-      let pure = arg.exp_pure && List.for_all is_pure_case cases in
+      let pure = List.for_all is_pure_case cases in
       re {
         exp_desc = Texp_match(arg, cases, partial);
         exp_loc = loc; exp_extra = [];
@@ -2584,7 +2642,8 @@ and type_expect_
       let pure =
         is_pure_option opt_exp &&
         Array.for_all (fun (_,e) -> is_pure_record_label e) fields &&
-        Array.for_all (fun l -> l.lbl_mut = Immutable) label_descriptions
+        Array.for_all (fun l -> l.lbl_mut = Immutable) label_descriptions ||
+        Ctype.free_variables ty_expected = []
       in
       re {
         exp_desc = Texp_record {
@@ -2619,7 +2678,7 @@ and type_expect_
         exp_loc = loc; exp_extra = [];
         exp_type = instance Predef.type_unit;
         exp_attributes = sexp.pexp_attributes;
-        exp_env = env; exp_pure = record.exp_pure && newval.exp_pure }
+        exp_env = env; exp_pure = true }
   | Pexp_array(sargl) ->
       let ty = newgenvar() in
       let to_unify = Predef.type_array ty in
@@ -2627,12 +2686,13 @@ and type_expect_
         unify_exp_types loc env to_unify ty_expected);
       let argl =
         List.map (fun sarg -> type_expect env sarg (mk_expected ty)) sargl in
+      let pure = (Ctype.free_variables ty_expected = []) in
       re {
         exp_desc = Texp_array argl;
         exp_loc = loc; exp_extra = [];
         exp_type = instance ty_expected;
         exp_attributes = sexp.pexp_attributes;
-        exp_env = env; exp_pure = false }
+        exp_env = env; exp_pure = pure }
   | Pexp_ifthenelse(scond, sifso, sifnot) ->
       let cond = type_expect env scond
           (mk_expected ~explanation:If_conditional Predef.type_bool) in
@@ -2645,7 +2705,7 @@ and type_expect_
             exp_loc = loc; exp_extra = [];
             exp_type = ifso.exp_type;
             exp_attributes = sexp.pexp_attributes;
-            exp_env = env; exp_pure = ifso.exp_pure }
+            exp_env = env; exp_pure = true }
       | Some sifnot ->
           let ifso = type_expect env sifso ty_expected_explained in
           let ifnot = type_expect env sifnot ty_expected_explained in
