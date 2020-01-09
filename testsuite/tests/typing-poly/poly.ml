@@ -38,7 +38,7 @@ val id : 'a -> 'a = <fun>
 
 let px = {pv = []};;
 [%%expect {|
-val px : pty [@@pure] = {pv = []}
+val px : pty = {pv = []}
 |}];;
 
 match px with
@@ -459,7 +459,7 @@ val p1 : point = <obj>
 val cp : color_point = <obj>
 val c : circle = <obj>
 val d : float = 11.
-val f : < m : 'a. 'a -> 'a > -> < m : 'b. 'b -> 'b > [@@pure] = <fun>
+val f : < m : 'a. 'a -> 'a > -> < m : 'b. 'b -> 'b > = <fun>
 Line 9, characters 41-42:
 9 | let f (x : < m : 'a. 'a -> 'a list >) = (x : < m : 'b. 'b -> 'c >)
                                              ^
@@ -767,7 +767,7 @@ class ['a] olist :
     method cons : 'a -> 'c
     method fold : f:('a -> 'b -> 'b) -> init:'b -> 'b
   end
-val sum : int #olist -> int = <fun>
+val sum : int #olist -> int [@@pure] = <fun>
 val count : 'a #olist -> int = <fun>
 val append : 'a #olist -> ('a #olist as 'b) -> 'b = <fun>
 |}];;
@@ -837,13 +837,12 @@ let f (x: <m:'a.<p: 'a * 'b> as 'b>) (y : 'b) = ();;
 let f (x: <m:'a. 'a * (<p:int*'b> as 'b)>) (y : 'b) = ();;
 [%%expect {|
 val f : < m : 'a. < p : 'a * 'c > as 'c > -> 'b -> unit [@@pure] = <fun>
-val f : < m : 'a. 'a * (< p : int * 'b > as 'b) > -> 'b -> unit [@@pure] =
-  <fun>
+val f : < m : 'a. 'a * (< p : int * 'b > as 'b) > -> 'b -> unit = <fun>
 |}, Principal{|
 val f : < m : 'a. < p : 'a * 'c > as 'c > -> 'b -> unit [@@pure] = <fun>
 val f :
   < m : 'a. 'a * (< p : int * 'b > as 'b) > ->
-  (< p : int * 'c > as 'c) -> unit [@@pure] = <fun>
+  (< p : int * 'c > as 'c) -> unit = <fun>
 |}];;
 
 (* PR#3643 *)
@@ -1147,17 +1146,15 @@ Line 3, characters 2-64:
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Signature mismatch:
        Modules do not match:
-         sig val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit [@@pure] end
+         sig val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit end
        is not included in
          sig
            val f : < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > -> unit
-             [@@pure]
          end
        Values do not match:
-         val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit [@@pure]
+         val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit
        is not included in
          val f : < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > -> unit
-           [@@pure]
 |}];;
 
 module M : sig type 'a t type u = <m: 'a. 'a t> end
@@ -1169,8 +1166,8 @@ module M : sig type 'a t val f : <m: 'a. 'a t> -> int end
 = struct type 'a t = int let f x = x#m end;;
 [%%expect {|
 module M : sig type 'a t type u = < m : 'a. 'a t > end
-module M : sig type 'a t val f : < m : 'a. 'a t > -> int [@@pure] end
-module M : sig type 'a t val f : < m : 'a. 'a t > -> int [@@pure] end
+module M : sig type 'a t val f : < m : 'a. 'a t > -> int end
+module M : sig type 'a t val f : < m : 'a. 'a t > -> int end
 |}];;
 
 let f x y =
@@ -1180,7 +1177,7 @@ let f x y =
 [%%expect {|
 val f :
   (< m : 'a. 'a -> (< m : 'a. 'a -> 'c * <  > > as 'c) * < .. >; .. > as 'b) ->
-  'b -> bool = <fun>
+  'b -> bool [@@pure] = <fun>
 |}];;
 
 
@@ -1242,14 +1239,14 @@ fun x -> (f (x,x))#m;; (* Warning 18 *)
 let f x = if true then [| (x : < m : 'a. 'a -> 'a >) |] else [|x|];;
 fun x -> (f x).(0)#m;; (* Warning 18 *)
 [%%expect {|
-val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
+val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > = <fun>
 - : < m : 'a. 'a -> 'a > -> 'b -> 'b = <fun>
 val f : < m : 'a. 'a -> 'a > * 'b -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
 - : < m : 'a. 'a -> 'a > -> 'b -> 'b = <fun>
 val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > array = <fun>
 - : < m : 'a. 'a -> 'a > -> 'b -> 'b = <fun>
 |}, Principal{|
-val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
+val f : < m : 'a. 'a -> 'a > -> < m : 'a. 'a -> 'a > = <fun>
 Line 2, characters 9-16:
 2 | fun x -> (f x)#m;; (* Warning 18 *)
              ^^^^^^^
@@ -1283,14 +1280,14 @@ let h x =
 [%%expect {|
 class c : object method id : 'a -> 'a end
 type u = c option
-val just : 'a option -> 'a = <fun>
+val just : 'a option -> 'a [@@pure] = <fun>
 val f : c -> 'a -> 'a = <fun>
 val g : c -> 'a -> 'a = <fun>
 val h : < id : 'a; .. > -> 'a = <fun>
 |}, Principal{|
 class c : object method id : 'a -> 'a end
 type u = c option
-val just : 'a option -> 'a = <fun>
+val just : 'a option -> 'a [@@pure] = <fun>
 Line 4, characters 42-62:
 4 | let f x = let l = [Some x; (None : u)] in (just(List.hd l))#id;;
                                               ^^^^^^^^^^^^^^^^^^^^
@@ -1310,7 +1307,7 @@ let just = function None -> failwith "just" | Some x -> x;;
 let f x = let l = [Some x; (None : _ u)] in (just(List.hd l))#id;;
 [%%expect {|
 type 'a u = c option
-val just : 'a option -> 'a = <fun>
+val just : 'a option -> 'a [@@pure] = <fun>
 val f : c -> 'a -> 'a = <fun>
 |}];;
 
@@ -1391,7 +1388,7 @@ type t = {f: 'a. [< `Int of int] as 'a}
 let zero = {f = `Int 0} ;; (* fails *)
 [%%expect {|
 type t = { f : 'a. [> `B of 'a | `Int of int ] as 'a; }
-val zero : t [@@pure] = {f = `Int 0}
+val zero : t = {f = `Int 0}
 type t = { f : 'a. [< `Int of int ] as 'a; }
 Line 4, characters 16-22:
 4 | let zero = {f = `Int 0} ;; (* fails *)
@@ -1407,7 +1404,7 @@ let rec id : 'a. 'a -> 'a = fun x -> x
 and neg i b = (id (-i), id (not b));;
 [%%expect {|
 val id : 'a -> 'a [@@pure] = <fun>
-val neg : int -> bool -> int * bool [@@pure] = <fun>
+val neg : int -> bool -> int * bool = <fun>
 |}];;
 
 (* De Xavier *)
@@ -1426,7 +1423,7 @@ and transf_alist : 'a. _ -> ('a*t) list -> ('a*t) list = fun f -> function
   | (k,v)::tl -> (k, transf f v) :: transf_alist f tl
 ;;
 [%%expect {|
-val transf : (int -> t) -> t -> t [@@pure] = <fun>
+val transf : (int -> t) -> t -> t = <fun>
 val transf_alist : (int -> t) -> ('a * t) list -> ('a * t) list [@@pure] =
   <fun>
 |}];;
@@ -1467,7 +1464,7 @@ module Polux :
     type 'par t = 'par
     val ident : 'a -> 'a [@@pure]
     class alias : object method alias : 'a t -> 'a end
-    val f : < m : 'a. 'a t > -> < m : 'a. 'a > [@@pure]
+    val f : < m : 'a. 'a t > -> < m : 'a. 'a >
   end
 |}];;
 
@@ -1608,7 +1605,7 @@ let rec f : unit -> < m: 'a. 'a -> 'a> = fun () ->
   ignore (x#m "hello");
   assert false;;
 [%%expect{|
-val f : unit -> < m : 'a. 'a -> 'a > [@@pure] = <fun>
+val f : unit -> < m : 'a. 'a -> 'a > = <fun>
 |}]
 
 (* PR#7395 *)
@@ -1633,7 +1630,7 @@ let f t = { x = t.x };;
 [%%expect{|
 val f :
   < m : 'a. ([< `Foo of int & float ] as 'a) -> unit > ->
-  < m : 'b. ([< `Foo of int & float ] as 'b) -> unit > [@@pure] = <fun>
+  < m : 'b. ([< `Foo of int & float ] as 'b) -> unit > = <fun>
 type t = { x : 'a. ([< `Foo of int & float ] as 'a) -> unit; }
 val f : t -> t = <fun>
 |}]
@@ -1760,9 +1757,9 @@ module M :
   functor () ->
     sig
       val f : 'a -> 'a [@@pure]
-      val g : 'a -> 'a
+      val g : 'a -> 'a [@@pure]
       val h : 'a -> 'a
-      val i : 'a -> 'a
+      val i : 'a -> 'a [@@pure]
     end
 |}]
 

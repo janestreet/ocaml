@@ -1799,48 +1799,58 @@ let is_pure_record_label = function
   | Overridden (_, e) -> e.exp_pure
 *)
 
+let ground_exp exp = Ctype.free_variables exp.exp_type = []
+
 let rec is_pure_exp exp =
-  Ctype.free_variables exp.exp_type = [] ||
   match exp.exp_desc with
-  | Texp_ident (_, _, vd) -> vd.val_pure
+  | Texp_ident (_, _, vd)
+    -> vd.val_pure || ground_exp exp
   | Texp_constant _ -> true
-  | Texp_let (_, _, e) -> is_pure_exp e
+  | Texp_let (_, vbl, e)
+    -> is_pure_exp e && List.for_all (fun vb -> is_pure_exp vb.vb_expr) vbl
   | Texp_function {cases} -> List.for_all is_pure_case cases
   | Texp_apply (e, argl) ->
       is_pure_exp e &&
       List.for_all (fun (_,arg) -> is_pure_option arg) argl
-  | Texp_match (_, cases, _) -> List.for_all is_pure_case cases
-  | Texp_try (e, cases) -> is_pure_exp e && List.for_all is_pure_case cases
+  | Texp_match (e, cases, _)
+  | Texp_try (e, cases)
+    -> is_pure_exp e && List.for_all is_pure_case cases
   | Texp_tuple el -> List.for_all is_pure_exp el
   | Texp_construct (_, _, el) -> List.for_all is_pure_exp el
   | Texp_variant (_, eo) -> is_pure_option eo
   | Texp_record {fields; extended_expression} ->
       is_pure_option extended_expression &&
-      Array.for_all (fun (_,e) -> is_pure_record_label e) fields &&
-      let {lbl_all}, _ = fields.(0) in
-      Array.for_all (fun l -> l.lbl_mut = Immutable) lbl_all
+      Array.for_all is_pure_record_label fields
   | Texp_field (e, _, label)
-    -> is_pure_exp e && not (is_poly_label label)
-  | Texp_ifthenelse (_, ifso, ifels)
-    -> is_pure_exp ifso && is_pure_option ifels
-  | Texp_sequence (_, e)
-  | Texp_letmodule (_, _, _, _, e)
+    -> is_pure_exp e && (not (is_poly_label label) || ground_exp exp)
+  | Texp_setfield (e1, _, _, e2)
+    -> is_pure_exp e1 && is_pure_exp e2
+  | Texp_array el
+    -> ground_exp exp && List.for_all is_pure_exp el
+  | Texp_ifthenelse (b, ifso, ifelse)
+    -> is_pure_exp b && is_pure_exp ifso && is_pure_option ifelse
+  | Texp_sequence (e1, e2)
+  | Texp_while (e1, e2)
+    -> is_pure_exp e1 && is_pure_exp e2
+  | Texp_for (_, _, e1, e2, _, e3)
+    -> is_pure_exp e1 && is_pure_exp e2 && is_pure_exp e3
+  | Texp_send (e, _, eo)
+    -> is_pure_exp e && is_pure_option eo && ground_exp exp
+       && Option.fold ~none:true ~some:ground_exp eo
+  | Texp_new _
+    -> ground_exp exp
+  | Texp_instvar (_, path, _)
+    -> ground_exp exp || (Env.find_value path exp.exp_env).val_pure
+  | Texp_override (_, fl)
+    -> ground_exp exp && List.for_all (fun (_, _, e) -> is_pure_exp e) fl
+  | Texp_setinstvar (_, _, _, e)
   | Texp_letexception (_, e)
+  | Texp_assert e
   | Texp_lazy e
   | Texp_open (_, e)
     -> is_pure_exp e
-  | Texp_unreachable
-    -> true
-  | Texp_setfield _
-  | Texp_array _
-  | Texp_while _
-  | Texp_for _
-  | Texp_send _
-  | Texp_new _
-  | Texp_instvar _
-  | Texp_setinstvar _
-  | Texp_override _
-  | Texp_assert _
+  | Texp_unreachable -> true
+  | Texp_letmodule _
   | Texp_object _
   | Texp_pack _
   | Texp_letop _
@@ -1852,8 +1862,9 @@ and is_pure_case c = is_pure_exp c.c_rhs
 and is_pure_option o = Option.fold ~none:true ~some:is_pure_exp o
 
 and is_pure_record_label = function
-  | Kept _ -> true
-  | Overridden (_, e) -> is_pure_exp e
+  | _, Kept _ -> true
+  | l, Overridden (_, e) ->
+      is_pure_exp e && (l.lbl_mut = Immutable || ground_exp e)
 
 and is_poly_label label =
   match repr label.lbl_arg with

@@ -23,10 +23,25 @@ val c' : ('_weak2 -> '_weak2) ref = {contents = <fun>}
 let f = let r = ref [] in fun g -> (g r : unit);;
 f (fun r -> r := [[1]]);;
 f (fun r -> print_int (List.hd !r));;
+[%%expect{|
+val f : ('_weak3 list ref -> unit) -> unit = <fun>
+- : unit = ()
+Line 3, characters 22-34:
+3 | f (fun r -> print_int (List.hd !r));;
+                          ^^^^^^^^^^^^
+Error: This expression has type int list
+       but an expression was expected of type int
+|}]
+let f = let r = ref [] in fun g -> (g r : unit);;
 let r1 = ref (ref []);;
 let r2 = ref (ref []);;
-f ((:=) r1); f ((:=) r2);;
-[%%expect]
+f ((:=) r1); f ((:=) r2); (!r1, !r2);;
+[%%expect{|
+val f : ('_weak4 list ref -> unit) -> unit = <fun>
+val r1 : '_weak5 list ref ref = {contents = {contents = []}}
+val r2 : '_weak6 list ref ref = {contents = {contents = []}}
+- : '_weak4 list ref * '_weak4 list ref = ({contents = []}, {contents = []})
+|}]
 
 type 'a cell = {get: unit -> 'a; set: 'a -> unit};;
 let mkcell x = let r = ref x in {get=(fun() -> !r);set=(:=) r};;
@@ -50,7 +65,7 @@ let p' =
   let id = ignore (mkcell ()); fun x -> x in
   id true, id 1;;
 [%%expect{|
-val p' : bool * int [@@pure] = (true, 1)
+val p' : bool * int = (true, 1)
 |}]
 
 (* Let-reduction fails *)
@@ -109,7 +124,7 @@ Error: This expression has type bool but an expression was expected of type
 |}]
 let p3 = let id' = ignore ref; id in (id' 1, id' true);;
 [%%expect{|
-val p3 : int * bool [@@pure] = (1, true)
+val p3 : int * bool = (1, true)
 |}]
 
 (* Must carefuly track polymorphism to keep soundness *)
