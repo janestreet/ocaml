@@ -1360,7 +1360,10 @@ let tree_of_value_description id decl =
   (* Format.eprintf "@[%a@]@." raw_type_expr decl.val_type; *)
   let id = Ident.name id in
   let ty = tree_of_type_scheme decl.val_type in
-  let attrs = if decl.val_pure then [{oattr_name="pure"}] else [] in
+  let attrs =
+    if decl.val_pure && Ctype.free_variables decl.val_type <> []
+    then [{oattr_name="pure"}] else []
+  in
   let vd =
     { oval_name = id;
       oval_type = ty;

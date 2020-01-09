@@ -115,7 +115,6 @@ and expression =
     exp_extra: (exp_extra * Location.t * attributes) list;
     exp_type: type_expr;
     exp_env: Env.t;
-    exp_pure: bool;
     exp_attributes: attributes;
    }
 

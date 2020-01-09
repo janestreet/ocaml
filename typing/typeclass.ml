@@ -1037,7 +1037,7 @@ and class_expr_aux cl_num val_env met_env scl =
               exp_loc = Location.none; exp_extra = [];
               exp_type = Ctype.instance vd.val_type;
               exp_attributes = []; (* check *)
-              exp_env = val_env'; exp_pure = vd.val_pure})
+              exp_env = val_env'})
           end
           pv
       in
@@ -1188,11 +1188,12 @@ and class_expr_aux cl_num val_env met_env scl =
                 exp_loc = Location.none; exp_extra = [];
                 exp_type = Ctype.instance vd.val_type;
                 exp_attributes = [];
-                exp_env = val_env; exp_pure = vd.val_pure;
+                exp_env = val_env;
                }
              in
              Ctype.end_def ();
              Ctype.generalize expr.exp_type;
+             prerr_endline ("let " ^ Ident.name id ^ if vd.val_pure then " pure" else " impure");
              let desc =
                {val_type = expr.exp_type; val_kind = Val_ivar (Immutable,
                                                                cl_num);

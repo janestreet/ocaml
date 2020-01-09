@@ -18,6 +18,16 @@ val c : ('_weak1 -> '_weak1) ref = {contents = <fun>}
 val c' : ('_weak2 -> '_weak2) ref = {contents = <fun>}
 |}]
 
+(* Beware of ground types! *)
+
+let f = let r = ref [] in fun g -> (g r : unit);;
+f (fun r -> r := [[1]]);;
+f (fun r -> print_int (List.hd !r));;
+let r1 = ref (ref []);;
+let r2 = ref (ref []);;
+f ((:=) r1); f ((:=) r2);;
+[%%expect]
+
 type 'a cell = {get: unit -> 'a; set: 'a -> unit};;
 let mkcell x = let r = ref x in {get=(fun() -> !r);set=(:=) r};;
 [%%expect{|
@@ -56,7 +66,7 @@ val p2 : bool * int = (true, 1)
 
 (* Fails: cannot generalize because mkcell is impure  *)
 let p2' =
-  let (_,id) = (mkcell (), fun x -> x) in
+  let (_,id) = (mkcell [], fun x -> x) in
   id true, id 1;;
 [%%expect{|
 Line 3, characters 14-15:
