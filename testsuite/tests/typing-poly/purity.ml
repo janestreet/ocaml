@@ -263,3 +263,16 @@ Line 3, characters 36-56:
 Error: This definition has type 'a. 'a -> 'a which is less general than
          'a. 'a -> 'a [@pure]
 |}]
+
+class c = object method id : 'a. 'a -> 'a [@pure] = fun x -> x end;;
+let f (o : c) = o#id;;
+class c = object method id : 'a. 'a -> 'a [@pure] = fun x -> Obj.magic x end;;
+[%%expect{|
+class c : object method id : 'a. 'a -> 'a [@pure] end
+val f : c -> 'a -> 'a = <fun>
+Line 3, characters 52-72:
+3 | class c = object method id : 'a. 'a -> 'a [@pure] = fun x -> Obj.magic x end;;
+                                                        ^^^^^^^^^^^^^^^^^^^^
+Error: This method has type 'b. 'b -> 'b which is less general than
+         'a. 'a -> 'a [@pure]
+|}]
