@@ -310,7 +310,7 @@ let fold_type_expr f init ty =
   | Tlink ty            -> f init ty
   | Tsubst ty           -> f init ty
   | Tunivar _           -> init
-  | Tpoly (ty, tyl)     ->
+  | Tpoly (ty, tyl, _)  ->
     let result = f init ty in
     List.fold_left f result tyl
   | Tpackage (_, _, l)  -> List.fold_left f init l
@@ -494,9 +494,9 @@ let rec copy_type_desc ?(keep_names=false) f = function
   | Tlink ty            -> copy_type_desc f ty.desc
   | Tsubst _            -> assert false
   | Tunivar _ as ty     -> ty (* always keep the name *)
-  | Tpoly (ty, tyl)     ->
+  | Tpoly (ty, tyl, pu) ->
       let tyl = List.map (fun x -> norm_univar (f x)) tyl in
-      Tpoly (f ty, tyl)
+      Tpoly (f ty, tyl, pu)
   | Tpackage (p, n, l)  -> Tpackage (p, n, List.map f l)
 
 (* Utilities for copying *)

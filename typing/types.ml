@@ -37,7 +37,7 @@ and type_desc =
   | Tsubst of type_expr         (* for copying *)
   | Tvariant of row_desc
   | Tunivar of string option
-  | Tpoly of type_expr * type_expr list
+  | Tpoly of type_expr * type_expr list * bool
   | Tpackage of Path.t * Longident.t list * type_expr list
 
 and row_desc =

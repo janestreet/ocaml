@@ -206,6 +206,13 @@ let transl_labels env closed lbls =
     Builtin_attributes.warning_scope attrs
       (fun () ->
          let arg = Ast_helper.Typ.force_poly arg in
+         let pure_attr =
+           List.filter
+             (function {attr_name={txt="pure"|"ocaml.pure"}} -> true
+               | _ -> false)
+             attrs in
+         let arg =
+           {arg with ptyp_attributes = pure_attr @ arg.ptyp_attributes} in
          let cty = transl_simple_type env closed arg in
          {ld_id = Ident.create_local name.txt;
           ld_name = name; ld_mutable = mut;
@@ -217,7 +224,7 @@ let transl_labels env closed lbls =
     List.map
       (fun ld ->
          let ty = ld.ld_type.ctyp_type in
-         let ty = match ty.desc with Tpoly(t,[]) -> t | _ -> ty in
+         let ty = match ty.desc with Tpoly(t,[],_) -> t | _ -> ty in
          {Types.ld_id = ld.ld_id;
           ld_mutable = ld.ld_mutable;
           ld_type = ty;
@@ -304,7 +311,7 @@ let rec check_unboxed_abstract_arg loc univ ty =
     | None -> ()
     | Some (_, args) -> List.iter (check_unboxed_abstract_arg loc univ) args
     end
-  | Tpoly (t, _) -> check_unboxed_abstract_arg loc univ t
+  | Tpoly (t, _, _) -> check_unboxed_abstract_arg loc univ t
 
 and check_unboxed_abstract_row_field loc univ (_, field) =
   match field with
@@ -335,7 +342,7 @@ let rec check_unboxed_gadt_arg loc univ env ty =
       List.iter (check_unboxed_abstract_arg loc univ) args
   | Some {desc = Tfield _ | Tlink _ | Tsubst _; _} -> assert false
   | Some {desc = Tunivar _; _} -> ()
-  | Some {desc = Tpoly (t2, _); _} -> check_unboxed_gadt_arg loc univ env t2
+  | Some {desc = Tpoly (t2, _, _); _} -> check_unboxed_gadt_arg loc univ env t2
   | None -> ()
       (* This case is tricky: the argument is another (or the same) type
          in the same recursive definition. In this case we don't have to
@@ -566,7 +573,7 @@ let rec check_constraints_rec env loc visited ty =
       if not (Ctype.matches env ty ty') then
         raise (Error(loc, Constraint_failed (ty, ty')));
       List.iter (check_constraints_rec env loc visited) args
-  | Tpoly (ty, tl) ->
+  | Tpoly (ty, tl, _) ->
       let _, ty = Ctype.instance_poly false tl ty in
       check_constraints_rec env loc visited ty
   | _ ->
@@ -794,7 +801,7 @@ let check_recursion env loc path decl to_check =
             with Not_found -> ()
           end;
           List.iter (check_regular cpath args prev_exp) args'
-      | Tpoly (ty, tl) ->
+      | Tpoly (ty, tl, _) ->
           let (_, ty) = Ctype.instance_poly ~keep_names:true false tl ty in
           check_regular cpath args prev_exp ty
       | _ ->
@@ -1378,9 +1385,6 @@ let check_unboxable env loc ty =
     )
     all_unboxable_types
     ()
-
-let has_pure_attribute attrs =
-  Attr_helper.has_no_payload_attribute ["pure"; "ocaml.pure"]  attrs
 
 (* Translate a value declaration *)
 let transl_value_decl env loc valdecl =

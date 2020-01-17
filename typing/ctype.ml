@@ -743,7 +743,7 @@ let rec generalize_spine ty =
       set_level ty generic_level;
       generalize_spine ty1;
       generalize_spine ty2;
-  | Tpoly (ty', _) ->
+  | Tpoly (ty', _, _) ->
       set_level ty generic_level;
       generalize_spine ty'
   | Ttuple tyl
@@ -1015,7 +1015,7 @@ let compute_univars ty =
   let node_univars = TypeHash.create 17 in
   let rec add_univar univ inv =
     match inv.inv_type.desc with
-      Tpoly (_ty, tl) when List.memq univ (List.map repr tl) -> ()
+      Tpoly (_ty, tl, _) when List.memq univ (List.map repr tl) -> ()
     | _ ->
         try
           let univs = TypeHash.find node_univars inv.inv_type in
@@ -1390,13 +1390,13 @@ let rec copy_sep cleanup_scope fixed free bound visited ty =
           let fixed' = fixed && is_Tvar (repr more') in
           let row = copy_row copy_rec fixed' row keep more' in
           Tvariant row
-      | Tpoly (t1, tl) ->
+      | Tpoly (t1, tl, pure) ->
           let tl = List.map repr tl in
           let tl' = List.map (fun t -> newty t.desc) tl in
           let bound = tl @ bound in
           let visited =
             List.map2 (fun ty t -> ty,(t,bound)) tl tl' @ visited in
-          Tpoly (copy_sep cleanup_scope fixed free bound visited t1, tl')
+          Tpoly (copy_sep cleanup_scope fixed free bound visited t1, tl', pure)
       | _ -> copy_type_desc copy_rec ty.desc
       end;
     t
@@ -1425,14 +1425,14 @@ let instance_poly ?(keep_names=false) fixed univars sch =
 let instance_label fixed lbl =
   For_copy.with_scope (fun scope ->
     let ty_res = copy scope lbl.lbl_res in
-    let vars, ty_arg =
+    let (vars, ty_arg), pure =
       match repr lbl.lbl_arg with
-        {desc = Tpoly (ty, tl)} ->
-          instance_poly' scope ~keep_names:false fixed tl ty
+        {desc = Tpoly (ty, tl, pure)} ->
+          instance_poly' scope ~keep_names:false fixed tl ty, pure
       | _ ->
-          [], copy scope lbl.lbl_arg
+          ([], copy scope lbl.lbl_arg), false
     in
-    (vars, ty_arg, ty_res)
+    ((vars, pure), ty_arg, ty_res)
   )
 
 (**** Instantiation with parameter substitution ****)
@@ -1873,7 +1873,7 @@ let occur_univar env ty =
         Tunivar _ ->
           if not (TypeSet.mem ty bound) then
             raise Trace.(Unify [escape (Univ ty)])
-      | Tpoly (ty, tyl) ->
+      | Tpoly (ty, tyl, _) ->
           let bound = List.fold_right TypeSet.add (List.map repr tyl) bound in
           occur_rec bound  ty
       | Tconstr (_, [], _) -> ()
@@ -1920,7 +1920,7 @@ let univars_escape env univar_pairs vl ty =
     if TypeSet.mem t !visited then () else begin
       visited := TypeSet.add t !visited;
       match t.desc with
-        Tpoly (t, tl) ->
+        Tpoly (t, tl, _) ->
           if List.exists (fun t -> TypeSet.mem (repr t) family) tl then ()
           else occur t
       | Tunivar _ ->
@@ -1951,9 +1951,9 @@ let enter_poly env univar_pairs t1 tl1 t2 tl2 f =
   in
   let tl1 = List.map repr tl1 and tl2 = List.map repr tl2 in
   if List.exists (fun t -> TypeSet.mem t known_univars) tl1 then
-     univars_escape env old_univars tl1 (newty(Tpoly(t2,tl2)));
+     univars_escape env old_univars tl1 (newty(Tpoly(t2,tl2,false)));
   if List.exists (fun t -> TypeSet.mem t known_univars) tl2 then
-    univars_escape env old_univars tl2 (newty(Tpoly(t1,tl1)));
+    univars_escape env old_univars tl2 (newty(Tpoly(t1,tl1,false)));
   let cl1 = List.map (fun t -> t, ref None) tl1
   and cl2 = List.map (fun t -> t, ref None) tl2 in
   univar_pairs := (cl1,cl2) :: (cl2,cl1) :: old_univars;
@@ -1963,7 +1963,7 @@ let enter_poly env univar_pairs t1 tl1 t2 tl2 f =
 let univar_pairs = ref []
 
 (* assumption: [ty] is fully generalized. *)
-let reify_univars ty =
+let reify_univars ~pure ty =
   let rec subst_univar scope vars ty =
     let ty = repr ty in
     if ty.level >= lowest_level then begin
@@ -1986,7 +1986,7 @@ let reify_univars ty =
       copy scope ty
     )
   in
-  newty2 ty.level (Tpoly(repr ty, !vars))
+  newty2 ty.level (Tpoly(repr ty, !vars, pure))
 
 
                               (*****************)
@@ -2214,9 +2214,9 @@ let rec mcomp type_pairs env t1 t2 =
             mcomp_fields type_pairs env t1' t2'
         | (Tnil, Tnil) ->
             ()
-        | (Tpoly (t1, []), Tpoly (t2, [])) ->
+        | (Tpoly (t1, [], _), Tpoly (t2, [], _)) ->
             mcomp type_pairs env t1 t2
-        | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
+        | (Tpoly (t1, tl1, p1), Tpoly (t2, tl2, p2)) when p1 = p2 ->
             enter_poly env univar_pairs t1 tl1 t2 tl2
               (mcomp type_pairs env)
         | (Tunivar _, Tunivar _) ->
@@ -2709,9 +2709,9 @@ and unify3 env t1 t1' t2 t2' =
           end
       | (Tnil, Tnil) ->
           ()
-      | (Tpoly (t1, []), Tpoly (t2, [])) ->
+      | (Tpoly (t1, [], _), Tpoly (t2, [], _)) ->
           unify env t1 t2
-      | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
+      | (Tpoly (t1, tl1, p1), Tpoly (t2, tl2, p2)) when p1 = p2 ->
           enter_poly !env univar_pairs t1 tl1 t2 tl2 (unify env)
       | (Tpackage (p1, n1, tl1), Tpackage (p2, n2, tl2)) ->
           begin try
@@ -3229,9 +3229,9 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
               moregen_fields inst_nongen type_pairs env t1' t2'
           | (Tnil, Tnil) ->
               ()
-          | (Tpoly (t1, []), Tpoly (t2, [])) ->
+          | (Tpoly (t1, [], _), Tpoly (t2, [], _)) ->
               moregen inst_nongen type_pairs env t1 t2
-          | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
+          | (Tpoly (t1, tl1, p1), Tpoly (t2, tl2, p2)) when p1 = p2 ->
               enter_poly env univar_pairs t1 tl1 t2 tl2
                 (moregen inst_nongen type_pairs env)
           | (Tunivar _, Tunivar _) ->
@@ -3501,9 +3501,9 @@ let rec eqtype rename type_pairs subst env t1 t2 =
               eqtype_fields rename type_pairs subst env t1' t2'
           | (Tnil, Tnil) ->
               ()
-          | (Tpoly (t1, []), Tpoly (t2, [])) ->
+          | (Tpoly (t1, [], _), Tpoly (t2, [], _)) ->
               eqtype rename type_pairs subst env t1 t2
-          | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
+          | (Tpoly (t1, tl1, p1), Tpoly (t2, tl2, p2)) when p1 = p2 ->
               enter_poly env univar_pairs t1 tl1 t2 tl2
                 (eqtype rename type_pairs subst env)
           | (Tunivar _, Tunivar _) ->
@@ -4107,9 +4107,9 @@ let rec build_subtype env visited loops posi level t =
       end
   | Tsubst _ | Tlink _ ->
       assert false
-  | Tpoly(t1, tl) ->
+  | Tpoly(t1, tl, pure) ->
       let (t1', c) = build_subtype env visited loops posi level t1 in
-      if c > Unchanged then (newty (Tpoly(t1', tl)), c)
+      if c > Unchanged then (newty (Tpoly(t1', tl, pure)), c)
       else (t, Unchanged)
   | Tunivar _ | Tpackage _ ->
       (t, Unchanged)
@@ -4202,12 +4202,12 @@ let rec subtype_rec env trace t1 t2 cstrs =
         with Exit ->
           (trace, t1, t2, !univar_pairs)::cstrs
         end
-    | (Tpoly (u1, []), Tpoly (u2, [])) ->
+    | (Tpoly (u1, [], _), Tpoly (u2, [], _)) ->
         subtype_rec env trace u1 u2 cstrs
-    | (Tpoly (u1, tl1), Tpoly (u2, [])) ->
+    | (Tpoly (u1, tl1, _), Tpoly (u2, [], _)) ->
         let _, u1' = instance_poly false tl1 u1 in
         subtype_rec env trace u1' u2 cstrs
-    | (Tpoly (u1, tl1), Tpoly (u2,tl2)) ->
+    | (Tpoly (u1, tl1, p1), Tpoly (u2,tl2, p2)) when p1 = p2 ->
         begin try
           enter_poly env univar_pairs u1 tl1 u2 tl2
             (fun t1 t2 -> subtype_rec env trace t1 t2 cstrs)

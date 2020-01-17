@@ -510,10 +510,11 @@ and raw_type_desc ppf = function
   | Tlink t -> fprintf ppf "@[<1>Tlink@,%a@]" raw_type t
   | Tsubst t -> fprintf ppf "@[<1>Tsubst@,%a@]" raw_type t
   | Tunivar name -> fprintf ppf "Tunivar %a" print_name name
-  | Tpoly (t, tl) ->
-      fprintf ppf "@[<hov1>Tpoly(@,%a,@,%a)@]"
+  | Tpoly (t, tl, pure) ->
+      fprintf ppf "@[<hov1>Tpoly(@,%a,@,%a,@,%b)@]"
         raw_type t
         raw_type_list tl
+        pure
   | Tvariant row ->
       fprintf ppf
         "@[<hov1>{@[%s@,%a;@]@ @[%s@,%a;@]@ %s%B;@ %s%a;@ @[<1>%s%t@]}@]"
@@ -893,7 +894,7 @@ let rec mark_loops_rec visited ty =
     | Tnil -> ()
     | Tsubst ty -> mark_loops_rec visited ty
     | Tlink _ -> fatal_error "Printtyp.mark_loops_rec (2)"
-    | Tpoly (ty, tyl) ->
+    | Tpoly (ty, tyl, _) ->
         List.iter (fun t -> add_alias t) tyl;
         mark_loops_rec visited ty
     | Tunivar _ -> add_named_var ty
@@ -1004,9 +1005,9 @@ let rec tree_of_typexp sch ty =
         tree_of_typexp sch ty
     | Tlink _ ->
         fatal_error "Printtyp.tree_of_typexp"
-    | Tpoly (ty, []) ->
+    | Tpoly (ty, [], _) ->
         tree_of_typexp sch ty
-    | Tpoly (ty, tyl) ->
+    | Tpoly (ty, tyl, pure) ->
         (*let print_names () =
           List.iter (fun (_, name) -> prerr_string (name ^ " ")) !names;
           prerr_string "; " in *)
@@ -1017,7 +1018,7 @@ let rec tree_of_typexp sch ty =
              printed once when used as proxy *)
           List.iter add_delayed tyl;
           let tl = List.map (name_of_type new_name) tyl in
-          let tr = Otyp_poly (tl, tree_of_typexp sch ty) in
+          let tr = Otyp_poly (tl, tree_of_typexp sch ty, pure) in
           (* Forget names when we leave scope *)
           remove_names tyl;
           delayed := old_delayed; tr
@@ -1384,8 +1385,8 @@ let value_description id ppf decl =
 
 let method_type (_, kind, ty) =
   match field_kind_repr kind, repr ty with
-    Fpresent, {desc=Tpoly(ty, tyl)} -> (ty, tyl)
-  | _       , ty                    -> (ty, [])
+    Fpresent, {desc=Tpoly(ty, tyl, false)} -> (ty, tyl)
+  | _       , ty                           -> (ty, [])
 
 let tree_of_metho sch concrete csil (lab, kind, ty) =
   if lab <> dummy_method then begin

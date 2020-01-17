@@ -1087,7 +1087,7 @@ and type_pat_aux ~exception_allowed ~constrs ~labels ~no_existentials ~mode
       unify_pat_types lloc !env ty (instance expected_ty);
       pattern_force := force :: !pattern_force;
       begin match ty.desc with
-      | Tpoly (body, tyl) ->
+      | Tpoly (body, tyl, _) ->
           begin_def ();
           let _, ty' = instance_poly ~keep_names:true false tyl body in
           end_def ();
@@ -1799,7 +1799,9 @@ let is_pure_record_label = function
   | Overridden (_, e) -> e.exp_pure
 *)
 
-let ground_exp exp = Ctype.free_variables exp.exp_type = []
+let ground_exp exp =
+  Ctype.free_variables exp.exp_type = [] &&
+  try Ctype.occur_univar Env.empty exp.exp_type; true with _ -> false
 
 let rec is_pure_exp exp =
   match exp.exp_desc with
@@ -1822,7 +1824,7 @@ let rec is_pure_exp exp =
       is_pure_option extended_expression &&
       Array.for_all is_pure_record_label fields
   | Texp_field (e, _, label)
-    -> is_pure_exp e && (not (is_poly_label label) || ground_exp exp)
+    -> is_pure_exp e && (not (impure_access label) || ground_exp exp)
   | Texp_setfield (e1, _, _, e2)
     -> is_pure_exp e1 && is_pure_exp e2
   | Texp_array el
@@ -1866,9 +1868,9 @@ and is_pure_record_label = function
   | l, Overridden (_, e) ->
       is_pure_exp e && (l.lbl_mut = Immutable || ground_exp e)
 
-and is_poly_label label =
+and impure_access label =
   match repr label.lbl_arg with
-    {desc = Tpoly (_, _ :: _)} -> true
+    {desc = Tpoly (_, _ :: _, false)} -> true
   | _ -> false
 
 let maybe_expansive e = not (is_pure_exp e || is_nonexpansive e)
@@ -1958,7 +1960,7 @@ let list_labels env ty =
   wrap_trace_gadt_instances env (list_labels_aux env [] []) ty
 
 (* Check that all univars are safe in a type *)
-let check_univars env expans kind exp ty_expected vars =
+let check_univars env expans kind exp ty_expected vars ~pure =
   if expans && maybe_expansive exp then
     lower_contravariant env exp.exp_type;
   (* need to expand twice? cf. Ctype.unify2 *)
@@ -1974,8 +1976,9 @@ let check_univars env expans kind exp ty_expected vars =
             log_type t; t.desc <- Tunivar name; true
         | _ -> false)
       vars in
-  if List.length vars = List.length vars' then () else
-  let ty = newgenty (Tpoly(repr exp.exp_type, vars'))
+  let pure' = pure && is_pure_exp exp in
+  if List.length vars = List.length vars' && pure = pure' then () else
+  let ty = newgenty (Tpoly(repr exp.exp_type, vars', pure'))
   and ty_expected = repr ty_expected in
   raise (Error (exp.exp_loc, env,
                 Less_general(kind, [Unification_trace.diff ty ty_expected])))
@@ -2938,16 +2941,16 @@ and type_expect_
         end;
         let typ =
           match repr typ with
-            {desc = Tpoly (ty, [])} ->
+            {desc = Tpoly (ty, [], _)} ->
               instance ty
-          | {desc = Tpoly (ty, tl); level = l} ->
+          | {desc = Tpoly (ty, tl, _); level = l} ->
               if !Clflags.principal && l <> generic_level then
                 Location.prerr_warning loc
                   (Warnings.Not_principal "this use of a polymorphic method");
               snd (instance_poly false tl ty)
           | {desc = Tvar _} as ty ->
               let ty' = newvar () in
-              unify env (instance ty) (newty(Tpoly(ty',[])));
+              unify env (instance ty) (newty(Tpoly(ty',[],false)));
               (* if not !Clflags.nolabels then
                  Location.prerr_warning loc (Warnings.Unknown_method met); *)
               ty'
@@ -3153,10 +3156,10 @@ and type_expect_
           unify_exp_types loc env (instance ty) (instance ty_expected));
       let exp =
         match (expand_head env ty).desc with
-          Tpoly (ty', []) ->
+          Tpoly (ty', [], _) ->
             let exp = type_expect env sbody (mk_expected ty') in
             { exp with exp_type = instance ty }
-        | Tpoly (ty', tl) ->
+        | Tpoly (ty', tl, pure) ->
             (* One more level to generalize locally *)
             begin_def ();
             if !Clflags.principal then begin_def ();
@@ -3167,11 +3170,12 @@ and type_expect_
             end;
             let exp = type_expect env sbody (mk_expected ty'') in
             end_def ();
-            check_univars env false "method" exp ty_expected vars;
+            check_univars env false "method" exp ty_expected vars ~pure;
             { exp with exp_type = instance ty }
         | Tvar _ ->
             let exp = type_exp env sbody in
-            let exp = {exp with exp_type = newty (Tpoly (exp.exp_type, []))} in
+            let exp =
+              {exp with exp_type = newty (Tpoly (exp.exp_type, [], false))} in
             unify_exp env exp ty;
             exp
         | _ -> assert false
@@ -3732,7 +3736,7 @@ and type_label_exp create env loc ty_expected
   begin_def ();
   let separate = !Clflags.principal || Env.has_local_constraints env in
   if separate then (begin_def (); begin_def ());
-  let (vars, ty_arg, ty_res) = instance_label true label in
+  let ((vars, pure), ty_arg, ty_res) = instance_label true label in
   if separate then begin
     end_def ();
     (* Generalize label information *)
@@ -3761,7 +3765,7 @@ and type_label_exp create env loc ty_expected
     let arg = type_argument env sarg ty_arg (instance ty_arg) in
     end_def ();
     try
-      check_univars env (vars <> []) "field value" arg label.lbl_arg vars;
+      check_univars env (vars <> []) "field value" arg label.lbl_arg vars ~pure;
       arg
     with exn when maybe_expansive arg -> try
       (* Try to retype without propagating ty_arg, cf PR#4862 *)
@@ -3771,7 +3775,7 @@ and type_label_exp create env loc ty_expected
       end_def ();
       lower_contravariant env arg.exp_type;
       unify_exp env arg ty_arg;
-      check_univars env false "field value" arg label.lbl_arg vars;
+      check_univars env false "field value" arg label.lbl_arg vars ~pure;
       arg
     with Error (_, _, Less_general _) as e -> raise e
     | _ -> raise exn    (* In case of failure return the first error *)
@@ -4295,7 +4299,7 @@ and type_cases ?exception_allowed ?in_function env ty_arg pure_arg
           else
             ext_env
         in
-        let pure = pure_arg && not (has_poly_pattern pat) in
+        let pure = pure_arg && not (has_impure_pattern pat) in
         let ext_env =
           add_pattern_variables ext_env pvs ~pure
             ~check:(fun s -> Warnings.Unused_var_strict s)
@@ -4388,10 +4392,10 @@ and make_bindings_impure env pvs =
       Env.add_value pv_id {vd with val_pure = false} env)
     env pvs
 
-and has_poly_pattern pat =
+and has_impure_pattern pat =
   exists_pattern
     (function {pat_desc=Tpat_record(fl,_)} ->
-      List.exists (fun (_,lbl,_) -> is_poly_label lbl) fl
+      List.exists (fun (_,lbl,_) -> impure_access lbl) fl
     | _ -> false)
     pat
 
@@ -4439,21 +4443,19 @@ and type_let
   let attrs_list = List.map fst spatl in
   let is_recursive = (rec_flag = Recursive) in
   (* If recursive, first unify with an approximation of the expression *)
-  let has_poly_rec = ref false in
   if is_recursive then
     List.iter2
       (fun pat binding ->
         let pat =
           match pat.pat_type.desc with
-          | Tpoly (ty, tl) ->
-              has_poly_rec := true;
+          | Tpoly (ty, tl, _pure) ->
               {pat with pat_type =
                snd (instance_poly ~keep_names:true false tl ty)}
           | _ -> pat
         in unify_pat env pat (type_approx env binding.pvb_expr))
       pat_list spat_sexp_list;
-  let has_poly_pat = List.exists has_poly_pattern pat_list in
-  let impure_rec = is_recursive && has_poly_pat in
+  let has_impure_pat = List.exists has_impure_pattern pat_list in
+  let impure_rec = is_recursive && has_impure_pat in
   let rec_env =
     if impure_rec then make_bindings_impure new_env pvs else new_env in
   (* Polymorphic variant processing *)
@@ -4579,7 +4581,7 @@ and type_let
           if rec_flag = Recursive then wrap_unpacks sexp unpacks else sexp in
         if is_recursive then current_slot := slot;
         match pat.pat_type.desc with
-        | Tpoly (ty, tl) ->
+        | Tpoly (ty, tl, pure) ->
             begin_def ();
             if !Clflags.principal then begin_def ();
             let vars, ty' = instance_poly ~keep_names:true true tl ty in
@@ -4592,7 +4594,7 @@ and type_let
                   (fun () -> type_expect exp_env sexp (mk_expected ty'))
             in
             end_def ();
-            check_univars env true "definition" exp pat.pat_type vars;
+            check_univars env true "definition" exp pat.pat_type vars ~pure;
             {exp with exp_type = instance exp.exp_type}
         | _ ->
             Builtin_attributes.warning_scope pvb_attributes (fun () ->
@@ -4602,14 +4604,14 @@ and type_let
   (* Purity *)
   let exp_list, new_env =
     let pure =
-      not has_poly_pat && List.for_all is_pure_exp exp_list in
+      not has_impure_pat && List.for_all is_pure_exp exp_list in
     if pure then exp_list, new_env else
     let impure_env =
       if impure_rec then rec_env else make_bindings_impure new_env pvs in
     if not is_recursive then exp_list, impure_env else
     let exp_list = mk_exp_list impure_env in
     let pure =
-      not has_poly_pat && List.for_all is_pure_exp exp_list in
+      not has_impure_pat && List.for_all is_pure_exp exp_list in
     exp_list, if pure then new_env else impure_env
   in
   current_slot := None;

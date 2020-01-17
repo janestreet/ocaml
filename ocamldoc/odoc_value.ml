@@ -78,7 +78,7 @@ let parameter_list_from_arrows typ =
     | Types.Tlink texp
     | Types.Tsubst texp ->
         iter texp
-    | Types.Tpoly (texp, _) -> iter texp
+    | Types.Tpoly (texp, _, _) -> iter texp
     | Types.Tvar _
     | Types.Ttuple _
     | Types.Tconstr _

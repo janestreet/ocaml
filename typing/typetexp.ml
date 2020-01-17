@@ -55,6 +55,10 @@ module TyVarMap = Misc.Stdlib.String.Map
 
 type variable_context = int * type_expr TyVarMap.t
 
+(* Exported utility *)
+let has_pure_attribute attrs =
+  Attr_helper.has_no_payload_attribute ["pure"; "ocaml.pure"]  attrs
+
 (* Support for first-class modules. *)
 
 let transl_modtype_longident = ref (fun _ -> assert false)
@@ -504,7 +508,11 @@ and transl_type_aux env policy styp =
             end else tyl)
           [] new_univars
       in
-      let ty' = Btype.newgenty (Tpoly(ty, List.rev ty_list)) in
+      let pure =
+        has_pure_attribute styp.ptyp_attributes ||
+        has_pure_attribute st.ptyp_attributes
+      in
+      let ty' = Btype.newgenty (Tpoly(ty, List.rev ty_list, pure)) in
       unify_var env (newvar()) ty';
       ctyp (Ttyp_poly (vars, cty)) ty'
   | Ptyp_package (p, l) ->
@@ -548,6 +556,14 @@ and transl_fields env policy o fields =
     let of_attributes = pof_attributes in
     let of_desc = match pof_desc with
     | Otag (s, ty1) -> begin
+        let pure_attr =
+          List.filter
+            (function {attr_name={txt="pure"|"ocaml.pure"}} -> true
+              | _ -> false)
+            of_attributes
+        in
+        let ty1 =
+          {ty1 with ptyp_attributes = pure_attr @ ty1.ptyp_attributes} in
         let ty1 =
           Builtin_attributes.warning_scope of_attributes
             (fun () -> transl_poly_type env policy ty1)
@@ -681,7 +697,7 @@ let transl_simple_type_univars env styp =
   in
   make_fixed_univars typ.ctyp_type;
     { typ with ctyp_type =
-        instance (Btype.newgenty (Tpoly (typ.ctyp_type, univs))) }
+        instance (Btype.newgenty (Tpoly (typ.ctyp_type, univs, false))) }
 
 let transl_simple_type_delayed env styp =
   univars := []; used_variables := TyVarMap.empty;

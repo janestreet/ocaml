@@ -38,6 +38,8 @@ type variable_context
 val narrow: unit -> variable_context
 val widen: variable_context -> unit
 
+val has_pure_attribute: Parsetree.attributes -> bool
+
 exception Already_bound
 
 type error =

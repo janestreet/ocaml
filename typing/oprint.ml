@@ -262,10 +262,11 @@ let rec print_out_type ppf =
   function
   | Otyp_alias (ty, s) ->
       fprintf ppf "@[%a@ as %a@]" print_out_type ty pr_var s
-  | Otyp_poly (sl, ty) ->
-      fprintf ppf "@[<hov 2>%a.@ %a@]"
+  | Otyp_poly (sl, ty, pure) ->
+      fprintf ppf "@[<hov 2>%a.@ %a%t@]"
         pr_vars sl
         print_out_type ty
+        (fun ppf -> if pure then fprintf ppf "@ [@pure]")
   | ty ->
       print_out_type_1 ppf ty
 

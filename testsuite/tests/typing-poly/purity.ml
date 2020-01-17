@@ -210,3 +210,41 @@ class d (x : int) =
 [%%expect{|
 class d : int -> object val x : int method m : int * bool end
 |}]
+
+
+(* Annotations in records *)
+type id = {id: 'a. 'a -> 'a [@pure]};;
+let f (x : id) = x.id;;
+let rec id : id = {id = fun x -> x} and f x = id.id x;;
+[%%expect{|
+type id = { id : 'a. 'a -> 'a [@pure]; }
+val f : id -> 'a -> 'a [@@pure] = <fun>
+val id : id = {id = <fun>}
+val f : 'a -> 'a [@@pure] = <fun>
+|}]
+
+type impure_id = {iid: 'a. 'a -> 'a};;
+let f (x : impure_id) = x.iid;;
+let rec id : impure_id = {iid = fun x -> x} and f x = id.iid x;;
+[%%expect{|
+type impure_id = { iid : 'a. 'a -> 'a; }
+val f : impure_id -> 'a -> 'a = <fun>
+val id : impure_id = {iid = <fun>}
+val f : 'a -> 'a = <fun>
+|}]
+
+let r = ref [];;
+let rec id : id = {id = fun x -> r := Obj.repr x :: !r; x} and f x = id.id x;;
+[%%expect{|
+val r : '_weak7 list ref = {contents = []}
+Line 2, characters 24-57:
+2 | let rec id : id = {id = fun x -> r := Obj.repr x :: !r; x} and f x = id.id x;;
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: This field value has type 'b. 'b -> 'b which is less general than
+         'a. 'a -> 'a [@pure]
+|}]
+
+let a = ignore (f 1); ignore (f 1.0); List.map (Obj.obj : _ -> int) !r;;
+[%%expect{|
+val a : int list = []
+|}]

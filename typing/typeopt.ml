@@ -100,7 +100,7 @@ let classify env ty =
 
 let array_type_kind env ty =
   match scrape env ty with
-  | Tconstr(p, [elt_ty], _) | Tpoly({desc = Tconstr(p, [elt_ty], _)}, _)
+  | Tconstr(p, [elt_ty], _) | Tpoly({desc = Tconstr(p, [elt_ty], _)}, _, _)
     when Path.same p Predef.path_array ->
       begin match classify env elt_ty with
       | Any -> if Config.flat_float_array then Pgenarray else Paddrarray
@@ -108,7 +108,7 @@ let array_type_kind env ty =
       | Addr | Lazy -> Paddrarray
       | Int -> Pintarray
       end
-  | Tconstr(p, [], _) | Tpoly({desc = Tconstr(p, [], _)}, _)
+  | Tconstr(p, [], _) | Tpoly({desc = Tconstr(p, [], _)}, _, _)
     when Path.same p Predef.path_floatarray ->
       Pfloatarray
   | _ ->

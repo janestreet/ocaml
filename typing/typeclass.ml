@@ -728,9 +728,9 @@ and class_field_aux self_loc cl_num self_type meths vars
           begin match (Ctype.repr ty).desc with
             Tvar _ ->
               let ty' = Ctype.newvar () in
-              Ctype.unify val_env (Ctype.newty (Tpoly (ty', []))) ty;
+              Ctype.unify val_env (Ctype.newty (Tpoly (ty', [], false))) ty;
               Ctype.unify val_env (type_approx val_env sbody) ty'
-          | Tpoly (ty1, tl) ->
+          | Tpoly (ty1, tl, _) ->
               let _, ty1' = Ctype.instance_poly false tl ty1 in
               let ty2 = type_approx val_env sbody in
               Ctype.unify val_env ty2 ty1'
@@ -1193,7 +1193,6 @@ and class_expr_aux cl_num val_env met_env scl =
              in
              Ctype.end_def ();
              Ctype.generalize expr.exp_type;
-             prerr_endline ("let " ^ Ident.name id ^ if vd.val_pure then " pure" else " impure");
              let desc =
                {val_type = expr.exp_type; val_kind = Val_ivar (Immutable,
                                                                cl_num);
