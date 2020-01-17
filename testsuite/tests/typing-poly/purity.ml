@@ -248,3 +248,18 @@ let a = ignore (f 1); ignore (f 1.0); List.map (Obj.obj : _ -> int) !r;;
 [%%expect{|
 val a : int list = []
 |}]
+
+let rec id : 'a. 'a -> 'a = fun x -> x and f x = id x;;
+let rec id : 'a. 'a -> 'a = fun x -> Obj.magic x and f x = id x;;
+let rec id : 'a. 'a -> 'a [@pure] = fun x -> Obj.magic x and f x = id x;;
+[%%expect{|
+val id : 'a -> 'a [@@pure] = <fun>
+val f : 'a -> 'a [@@pure] = <fun>
+val id : 'a -> 'a = <fun>
+val f : 'a -> 'a = <fun>
+Line 3, characters 36-56:
+3 | let rec id : 'a. 'a -> 'a [@pure] = fun x -> Obj.magic x and f x = id x;;
+                                        ^^^^^^^^^^^^^^^^^^^^
+Error: This definition has type 'a. 'a -> 'a which is less general than
+         'a. 'a -> 'a [@pure]
+|}]
