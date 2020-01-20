@@ -276,3 +276,24 @@ Line 3, characters 52-72:
 Error: This method has type 'b. 'b -> 'b which is less general than
          'a. 'a -> 'a [@pure]
 |}]
+
+(* Pure methods cannot be used (this would be unsound) *)
+class c = object method ref : 'a. 'a -> 'a ref = ref end;;
+let f (o : c) = o#ref;;
+let ref' = f (new c);;
+let b : bool list = let r = ref' [] in r := [3]; !r;;
+[%%expect{|
+class c : object method ref : 'a -> 'a ref end
+val f : c -> 'a -> 'a ref = <fun>
+val ref' : '_weak8 -> '_weak8 ref = <fun>
+Line 4, characters 49-51:
+4 | let b : bool list = let r = ref' [] in r := [3]; !r;;
+                                                     ^^
+Error: This expression has type int list
+       but an expression was expected of type bool list
+       Type int is not compatible with type bool
+|}]
+let f o = (o : c :> <ref : 'a -> 'a ref>)#ref;;
+[%%expect{|
+val f : c -> 'a -> 'a ref = <fun>
+|}]
