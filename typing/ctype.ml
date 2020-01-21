@@ -579,6 +579,10 @@ let free_variables ?env ty =
   unmark_type ty;
   tl
 
+let is_poly_type ty =
+  let vars = free_variables ty in
+  List.exists (fun tv -> tv.level = generic_level) vars
+
 let closed_type ty =
   match free_vars ty with
       []           -> ()

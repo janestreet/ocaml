@@ -767,7 +767,7 @@ class ['a] olist :
     method cons : 'a -> 'c
     method fold : f:('a -> 'b -> 'b) -> init:'b -> 'b
   end
-val sum : int #olist -> int [@@pure] = <fun>
+val sum : int #olist -> int = <fun>
 val count : 'a #olist -> int = <fun>
 val append : 'a #olist -> ('a #olist as 'b) -> 'b = <fun>
 |}];;
@@ -1403,7 +1403,7 @@ Error: This expression has type [> `Int of int ]
 let rec id : 'a. 'a -> 'a = fun x -> x
 and neg i b = (id (-i), id (not b));;
 [%%expect {|
-val id : 'a -> 'a [@@pure] = <fun>
+val id : 'a -> 'a = <fun>
 val neg : int -> bool -> int * bool = <fun>
 |}];;
 

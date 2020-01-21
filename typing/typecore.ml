@@ -1524,6 +1524,7 @@ let add_pattern_variables ?check ?check_as ?(pure=false) env pv =
   List.fold_right
     (fun {pv_id; pv_type; pv_loc; pv_as_var; pv_attributes} env ->
        let check = if pv_as_var then check_as else check in
+       let pure = pure || not (is_poly_type pv_type) in
        Env.add_value ?check pv_id
          {val_type = pv_type; val_kind = Val_reg; Types.val_loc = pv_loc;
           val_attributes = pv_attributes; val_pure = pure;
@@ -1799,14 +1800,14 @@ let is_pure_record_label = function
   | Overridden (_, e) -> e.exp_pure
 *)
 
-let ground_exp exp =
+let _ground_exp exp =
   Ctype.free_variables exp.exp_type = [] &&
   try Ctype.occur_univar Env.empty exp.exp_type; true with _ -> false
 
 let rec is_pure_exp exp =
   match exp.exp_desc with
   | Texp_ident (_, _, vd)
-    -> vd.val_pure || ground_exp exp
+    -> vd.val_pure (* || ground_exp exp *)
   | Texp_constant _ -> true
   | Texp_let (_, vbl, e)
     -> is_pure_exp e && List.for_all (fun vb -> is_pure_exp vb.vb_expr) vbl
@@ -1824,11 +1825,11 @@ let rec is_pure_exp exp =
       is_pure_option extended_expression &&
       Array.for_all is_pure_record_label fields
   | Texp_field (e, _, label)
-    -> is_pure_exp e && (not (impure_access label) || ground_exp exp)
+    -> is_pure_exp e && (not (impure_access label) (*|| ground_exp exp*))
   | Texp_setfield (e1, _, _, e2)
     -> is_pure_exp e1 && is_pure_exp e2
-  | Texp_array el
-    -> ground_exp exp && List.for_all is_pure_exp el
+  | Texp_array _el
+    -> false (*ground_exp exp && List.for_all is_pure_exp el *)
   | Texp_ifthenelse (b, ifso, ifelse)
     -> is_pure_exp b && is_pure_exp ifso && is_pure_option ifelse
   | Texp_sequence (e1, e2)
@@ -1836,15 +1837,16 @@ let rec is_pure_exp exp =
     -> is_pure_exp e1 && is_pure_exp e2
   | Texp_for (_, _, e1, e2, _, e3)
     -> is_pure_exp e1 && is_pure_exp e2 && is_pure_exp e3
-  | Texp_send (e, _, eo)
+  | Texp_send _ (* (e, _, eo)
     -> is_pure_exp e && is_pure_option eo && ground_exp exp
-       && Option.fold ~none:true ~some:ground_exp eo
+       && Option.fold ~none:true ~some:ground_exp eo *)
   | Texp_new _
-    -> ground_exp exp
+    -> false (* ground_exp exp *)
   | Texp_instvar (_, path, _)
-    -> ground_exp exp || (Env.find_value path exp.exp_env).val_pure
-  | Texp_override (_, fl)
-    -> ground_exp exp && List.for_all (fun (_, _, e) -> is_pure_exp e) fl
+    -> (* ground_exp exp || *) (Env.find_value path exp.exp_env).val_pure
+  | Texp_override (_, _fl)
+    -> false
+    (* ground_exp exp && List.for_all (fun (_, _, e) -> is_pure_exp e) fl *)
   | Texp_setinstvar (_, _, _, e)
   | Texp_letexception (_, e)
   | Texp_assert e
@@ -1866,7 +1868,7 @@ and is_pure_option o = Option.fold ~none:true ~some:is_pure_exp o
 and is_pure_record_label = function
   | _, Kept _ -> true
   | l, Overridden (_, e) ->
-      is_pure_exp e && (l.lbl_mut = Immutable || ground_exp e)
+      is_pure_exp e && (l.lbl_mut = Immutable (*|| ground_exp e*))
 
 and impure_access label =
   match repr label.lbl_arg with
@@ -4389,7 +4391,8 @@ and make_bindings_impure env pvs =
       let p = Path.Pident pv_id in
       let vd = Env.find_value p env in
       (* Should we do something about usage ? *)
-      Env.add_value pv_id {vd with val_pure = false} env)
+      let pure = not (is_poly_type vd.val_type) in
+      Env.add_value pv_id {vd with val_pure = pure} env)
     env pvs
 
 and has_impure_pattern pat =
@@ -4602,13 +4605,6 @@ and type_let
             Builtin_attributes.warning_scope pvb_attributes (fun () ->
               type_expect exp_env sexp (mk_expected pat.pat_type)))
       spat_sexp_list pat_slot_list in
-  (* Purity *)
-  let new_env =
-    let pure =
-      not has_impure_pat && List.for_all is_pure_exp exp_list in
-    if pure then new_env else
-    if impure_rec then rec_env else make_bindings_impure new_env pvs
-  in
   current_slot := None;
   if is_recursive && not !rec_needed then begin
     let {pvb_pat; pvb_attributes} = List.hd spat_sexp_list in
@@ -4665,6 +4661,12 @@ and type_let
                                       | _ -> false) pat_extra) then
             check_partial_application false vb_expr
       | _ -> ()) l;
+  (* Purity *)
+  let new_env =
+    let pure =
+      not has_impure_pat && List.for_all is_pure_exp exp_list in
+    if pure then new_env else make_bindings_impure new_env pvs
+  in
   (l, new_env, unpacks)
 
 and type_andops env sarg sands expected_ty =

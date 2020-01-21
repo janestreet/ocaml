@@ -1362,7 +1362,7 @@ let tree_of_value_description id decl =
   let id = Ident.name id in
   let ty = tree_of_type_scheme decl.val_type in
   let attrs =
-    if decl.val_pure && Ctype.free_variables decl.val_type <> []
+    if decl.val_pure && is_poly_type decl.val_type
     then [{oattr_name="pure"}] else []
   in
   let vd =

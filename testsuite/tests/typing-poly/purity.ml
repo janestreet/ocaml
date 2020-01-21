@@ -301,9 +301,12 @@ val f : c -> 'a -> 'a ref = <fun>
 
 (* Local abstract types *)
 
+(* The following should not be pure! *)
 let ref' (type a) = let r = (ref : a -> a ref) in r;;
+let f (type a) = let f (x : a) = [|x|] in f;;
 [%%expect{|
-val ref' : 'a -> 'a ref [@@pure] = <fun>
+val ref' : 'a -> 'a ref = <fun>
+val f : 'a -> 'a array = <fun>
 |}]
 
 (* GADTs *)
@@ -317,6 +320,6 @@ let rec eval : type a. a ty -> a [@pure] = function
   | Arr (ta, tb) -> fun _ -> eval tb;;
 [%%expect{|
 type _ ty = Int : int ty | Arr : 'a ty * 'b ty -> ('a -> 'b) ty
-val eval : 'a ty -> 'a [@@pure] = <fun>
+val eval : 'a ty -> 'a = <fun>
 val eval : 'a ty -> 'a [@@pure] = <fun>
 |}]

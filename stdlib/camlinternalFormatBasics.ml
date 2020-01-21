@@ -526,7 +526,7 @@ and ('a, 'b, 'c, 'd, 'e, 'f) format6 =
 
 let rec erase_rel : type a b c d e f g h i j k l .
   (a, b, c, d, e, f,
-   g, h, i, j, k, l) fmtty_rel -> (a, b, c, d, e, f) fmtty
+   g, h, i, j, k, l) fmtty_rel -> (a, b, c, d, e, f) fmtty [@pure]
 = function
   | Char_ty rest ->
     Char_ty (erase_rel rest)
@@ -585,7 +585,7 @@ let rec concat_fmtty :
     (a1, b1, c1, d1, e1, f1,
      a2, b2, c2, d2, e2, f2) fmtty_rel ->
     (g1, b1, c1, j1, e1, f1,
-     g2, b2, c2, j2, e2, f2) fmtty_rel =
+     g2, b2, c2, j2, e2, f2) fmtty_rel [@pure] =
 fun fmtty1 fmtty2 -> match fmtty1 with
   | Char_ty rest ->
     Char_ty (concat_fmtty rest fmtty2)
@@ -626,7 +626,7 @@ fun fmtty1 fmtty2 -> match fmtty1 with
 let rec concat_fmt : type a b c d e f g h .
     (a, b, c, d, e, f) fmt ->
     (f, b, c, e, g, h) fmt ->
-    (a, b, c, d, g, h) fmt =
+    (a, b, c, d, g, h) fmt [@pure] =
 fun fmt1 fmt2 -> match fmt1 with
   | String (pad, rest) ->
     String (pad, concat_fmt rest fmt2)
