@@ -297,3 +297,26 @@ let f o = (o : c :> <ref : 'a -> 'a ref>)#ref;;
 [%%expect{|
 val f : c -> 'a -> 'a ref = <fun>
 |}]
+
+
+(* Local abstract types *)
+
+let ref' (type a) = let r = (ref : a -> a ref) in r;;
+[%%expect{|
+val ref' : 'a -> 'a ref [@@pure] = <fun>
+|}]
+
+(* GADTs *)
+
+type _ ty = Int : int ty | Arr : 'a ty * 'b ty -> ('a -> 'b) ty;;
+let rec eval : type a. a ty -> a = function
+  | Int -> 1
+  | Arr (ta, tb) -> fun _ -> eval tb;;
+let rec eval : type a. a ty -> a [@pure] = function
+  | Int -> 1
+  | Arr (ta, tb) -> fun _ -> eval tb;;
+[%%expect{|
+type _ ty = Int : int ty | Arr : 'a ty * 'b ty -> ('a -> 'b) ty
+val eval : 'a ty -> 'a [@@pure] = <fun>
+val eval : 'a ty -> 'a [@@pure] = <fun>
+|}]
