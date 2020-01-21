@@ -1318,10 +1318,10 @@ type 'a t = Leaf of 'a | Node of ('a * 'a) t;;
 let rec depth : 'a. 'a t -> _ =
   function Leaf _ -> 1 | Node x -> 1 + depth x;;
 [%%expect {|
-val f : 'a -> int [@@pure] = <fun>
-val g : 'a -> int [@@pure] = <fun>
+val f : 'a -> int = <fun>
+val g : 'a -> int = <fun>
 type 'a t = Leaf of 'a | Node of ('a * 'a) t
-val depth : 'a t -> int [@@pure] = <fun>
+val depth : 'a t -> int = <fun>
 |}]
 let rec depth : 'a. 'a t -> _ =
   function Leaf _ -> 1 | Node x -> 1 + d x
@@ -1424,8 +1424,7 @@ and transf_alist : 'a. _ -> ('a*t) list -> ('a*t) list = fun f -> function
 ;;
 [%%expect {|
 val transf : (int -> t) -> t -> t = <fun>
-val transf_alist : (int -> t) -> ('a * t) list -> ('a * t) list [@@pure] =
-  <fun>
+val transf_alist : (int -> t) -> ('a * t) list -> ('a * t) list = <fun>
 |}];;
 
 (* PR#4862 *)

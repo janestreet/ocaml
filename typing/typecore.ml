@@ -4443,19 +4443,21 @@ and type_let
   let attrs_list = List.map fst spatl in
   let is_recursive = (rec_flag = Recursive) in
   (* If recursive, first unify with an approximation of the expression *)
+  let impure_poly = ref false in
   if is_recursive then
     List.iter2
       (fun pat binding ->
         let pat =
           match pat.pat_type.desc with
-          | Tpoly (ty, tl, _pure) ->
+          | Tpoly (ty, tl, pure) ->
+              if not pure && tl <> [] then impure_poly := true;
               {pat with pat_type =
                snd (instance_poly ~keep_names:true false tl ty)}
           | _ -> pat
         in unify_pat env pat (type_approx env binding.pvb_expr))
       pat_list spat_sexp_list;
   let has_impure_pat = List.exists has_impure_pattern pat_list in
-  let impure_rec = is_recursive && has_impure_pat in
+  let impure_rec = is_recursive && (has_impure_pat || !impure_poly) in
   let rec_env =
     if impure_rec then make_bindings_impure new_env pvs else new_env in
   (* Polymorphic variant processing *)
@@ -4574,7 +4576,7 @@ and type_let
       attrs_list
       pat_list
   in
-  let mk_exp_list exp_env =
+  let exp_list =
     List.map2
       (fun {pvb_expr=sexp; pvb_attributes; _} (pat, slot) ->
         let sexp =
@@ -4600,19 +4602,12 @@ and type_let
             Builtin_attributes.warning_scope pvb_attributes (fun () ->
               type_expect exp_env sexp (mk_expected pat.pat_type)))
       spat_sexp_list pat_slot_list in
-  let exp_list = mk_exp_list exp_env in
   (* Purity *)
-  let exp_list, new_env =
+  let new_env =
     let pure =
       not has_impure_pat && List.for_all is_pure_exp exp_list in
-    if pure then exp_list, new_env else
-    let impure_env =
-      if impure_rec then rec_env else make_bindings_impure new_env pvs in
-    if not is_recursive then exp_list, impure_env else
-    let exp_list = mk_exp_list impure_env in
-    let pure =
-      not has_impure_pat && List.for_all is_pure_exp exp_list in
-    exp_list, if pure then new_env else impure_env
+    if pure then new_env else
+    if impure_rec then rec_env else make_bindings_impure new_env pvs
   in
   current_slot := None;
   if is_recursive && not !rec_needed then begin

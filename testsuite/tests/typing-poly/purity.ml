@@ -156,10 +156,10 @@ val mkref : mkref -> 'a -> 'a ref = <fun>
 (* recursive call to id impure due to polymorphism *)
 let rec id : 'a. 'a -> 'a = fun x -> id x;;
 [%%expect{|
-val id : 'a -> 'a [@@pure] = <fun>
+val id : 'a -> 'a = <fun>
 |}]
-(* ok if not called *)
-let rec id : 'a. 'a -> 'a = fun x -> x;;
+(* ok if annotated *)
+let rec id : 'a. 'a -> 'a [@pure] = fun x -> id x;;
 [%%expect{|
 val id : 'a -> 'a [@@pure] = <fun>
 |}]
@@ -253,8 +253,8 @@ let rec id : 'a. 'a -> 'a = fun x -> x and f x = id x;;
 let rec id : 'a. 'a -> 'a = fun x -> Obj.magic x and f x = id x;;
 let rec id : 'a. 'a -> 'a [@pure] = fun x -> Obj.magic x and f x = id x;;
 [%%expect{|
-val id : 'a -> 'a [@@pure] = <fun>
-val f : 'a -> 'a [@@pure] = <fun>
+val id : 'a -> 'a = <fun>
+val f : 'a -> 'a = <fun>
 val id : 'a -> 'a = <fun>
 val f : 'a -> 'a = <fun>
 Line 3, characters 36-56:
