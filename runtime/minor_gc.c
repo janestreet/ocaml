@@ -238,7 +238,7 @@ static value * aging_limit;
 /* Note that the tests on the tag depend on the fact that Infix_tag,
    Forward_tag, and No_scan_tag are contiguous. */
 
-void caml_oldify_one (value v, value *p)
+static void oldify_one_aux (value v, value *p, int add_to_ref)
 {
   value result;
   header_t hd;
@@ -262,8 +262,8 @@ void caml_oldify_one (value v, value *p)
             && (value *) Hp_val (v) < aging_limit){
           CAMLassert ((value *) Hp_val (v) >= caml_young_ptr);
           /* This block stays in the minor heap. */
-          /* Check for old-to-young pointer. */
-          if (Is_in_heap (p)){
+          if (add_to_ref){
+            /* This is a new old-to-young pointer */
             add_to_ref_table (&caml_ref_table, p);
           }
           *p = v;
@@ -376,6 +376,14 @@ void caml_oldify_one (value v, value *p)
   }
 }
 
+/* External version for root scanning, etc. This will never create a new
+   old-to-young reference.
+*/
+void caml_oldify_one (value v, value *p)
+{
+  oldify_one_aux (v, p, 0);
+}
+
 /* Test if the ephemeron is alive, everything outside minor heap is alive */
 static inline int ephe_check_alive_data(struct caml_ephe_ref_elt *re){
   mlsize_t i;
@@ -391,8 +399,8 @@ static inline int ephe_check_alive_data(struct caml_ephe_ref_elt *re){
   return 1;
 }
 
-/* Finish the work that was put off by [caml_oldify_one].
-   Note that [caml_oldify_one] itself is called by [caml_oldify_mopup], so we
+/* Finish the work that was put off by [oldify_one_aux].
+   Note that [oldify_one_aux] itself is called by [caml_oldify_mopup], so we
    have to be careful to remove the top of the stack before
    oldifying its fields. */
 void caml_oldify_mopup (void)
@@ -417,23 +425,24 @@ void caml_oldify_mopup (void)
 
         f = Field (new_v, 0);
         if (Is_block (f) && Is_young (f)){
-          caml_oldify_one (f, &Field (new_v, 0));
+          oldify_one_aux (f, &Field (new_v, 0), 1);
         }
         for (i = 1; i < Wosize_hd (hd); i++){
           f = Field (v, i);
           if (Is_block (f) && Is_young (f)){
-            caml_oldify_one (f, &Field (new_v, i));
+            oldify_one_aux (f, &Field (new_v, i), 1);
           }else{
             Field (new_v, i) = f;
           }
         }
       }else{
+        /* Kept in the minor heap. */
         CAMLassert_young_header (hd);
         CAMLassert (Is_black_hd (hd));
         for (i = 0; i < Wosize_hd (hd); i++){
           f = Field (v, i);
           if (Is_block (f) && Is_young (f)){
-            caml_oldify_one (f, &Field (v, i));
+            oldify_one_aux (f, &Field (v, i), 0);
           }
         }
       }
@@ -455,7 +464,7 @@ void caml_oldify_mopup (void)
             /* Stays in minor heap. */
           } else {
             if (ephe_check_alive_data(re)){
-              caml_oldify_one(*data,data);
+              oldify_one_aux (*data, data, 0);
               redo = 1; /* young_stack can still be empty */
             }
           }
@@ -490,7 +499,7 @@ void caml_empty_minor_heap (double aging_ratio)
   caml_oldify_minor_long_lived_roots ();
   CAML_INSTR_TIME (tmr, "minor/long_lived_roots");
   for (r = caml_ref_table.base; r < caml_ref_table.ptr; r++) {
-    caml_oldify_one (**r, *r);
+    oldify_one_aux (**r, *r, 0);
   }
   CAML_INSTR_TIME (tmr, "minor/ref_table");
   caml_oldify_mopup ();
