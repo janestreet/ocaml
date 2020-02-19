@@ -685,6 +685,13 @@ let get_components c =
   | None -> empty_structure
   | Some c -> c
 
+let check_functor_appl ~loc env f mty2 p2 =
+  if not (Hashtbl.mem f.fcomp_cache p2) then begin
+    match f.fcomp_arg with
+    | None -> raise Not_found (* PR#7611 *)
+    | Some arg -> !check_modtype_inclusion ~loc env mty2 p2 arg
+  end
+
 (* Lookup by identifier *)
 
 let rec find_module_descr path env =
@@ -965,6 +972,15 @@ let normalize_type_path oloc env path =
   | Papply _ ->
       assert false
 
+let rec normalize_modtype_path env path =
+  let path = normalize_path_prefix None env path in
+  expand_modtype_path env path
+
+and expand_modtype_path env path =
+  match (find_modtype path env).mtd_type with
+  | Some (Mty_ident path) -> normalize_modtype_path env path
+  | _ | exception Not_found -> path
+
 let find_module path env =
   find_module ~alias:false path env
 
@@ -1061,9 +1077,7 @@ let rec lookup_module_descr_aux ?loc ~mark lid env =
       begin match get_components desc1 with
         Functor_comps f ->
           let loc = match loc with Some l -> l | None -> Location.none in
-          (match f.fcomp_arg with
-          | None ->  raise Not_found (* PR#7611 *)
-          | Some arg -> !check_modtype_inclusion ~loc env mty2 p2 arg);
+          check_functor_appl ~loc env f mty2 p2;
           (Papply(p1, p2), !components_of_functor_appl' f env p1 p2)
       | Structure_comps _ ->
           raise Not_found
@@ -1137,9 +1151,7 @@ and lookup_module ~load ?loc ~mark lid env : Path.t =
       begin match get_components desc1 with
         Functor_comps f ->
           let loc = match loc with Some l -> l | None -> Location.none in
-          (match f.fcomp_arg with
-          | None -> raise Not_found (* PR#7611 *)
-          | Some arg -> (!check_modtype_inclusion ~loc env mty2 p2) arg);
+          check_functor_appl ~loc env f mty2 p2;
           p
       | Structure_comps _ ->
           raise Not_found

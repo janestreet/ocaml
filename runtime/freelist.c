@@ -1713,7 +1713,7 @@ static header_t *bf_merge_block (value bp, char *limit)
   while (wosz > Max_wosize){
     Hd_val (start) = Make_header (Max_wosize, 0, Caml_blue);
     bf_insert_sweep (start);
-    start = Next_small (start);
+    start = Next_in_mem (start);
     wosz -= Whsize_wosize (Max_wosize);
   }
   if (wosz > 0){
@@ -1780,20 +1780,20 @@ typedef enum caml_policy_t {
   policy_best_fit = 2,
 } caml_policy_t;
 
-uintnat caml_allocation_policy = policy_next_fit;
+uintnat caml_allocation_policy = policy_best_fit;
 
 /* These pointers are changed when switching between allocation
    policies. */
-static header_t *(*p_allocate) (mlsize_t wo_sz) = &nf_allocate;
-static void (*p_init_merge) (void) = &nf_init_merge;
-static void (*p_reset) (void) = &nf_reset;
-static header_t *(*p_merge_block) (value bp, char *limit) = &nf_merge_block;
-static void (*p_add_blocks) (value bp) = &nf_add_blocks;
+static header_t *(*p_allocate) (mlsize_t wo_sz) = &bf_allocate;
+static void (*p_init_merge) (void) = &bf_init_merge;
+static void (*p_reset) (void) = &bf_reset;
+static header_t *(*p_merge_block) (value bp, char *limit) = &bf_merge_block;
+static void (*p_add_blocks) (value bp) = &bf_add_blocks;
 static void (*p_make_free_blocks)
   (value *p, mlsize_t size, int do_merge, int color)
-  = &nf_make_free_blocks;
+  = &bf_make_free_blocks;
 #ifdef DEBUG
-static void (*p_check) (void) = &nf_check;
+static void (*p_check) (void) = &bf_check;
 #endif
 
 /********************* exported functions *****************************/
