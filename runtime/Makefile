@@ -275,8 +275,8 @@ caml/version.h : $(ROOTDIR)/tools/make-version-header.sh $(ROOTDIR)/VERSION
 ocamlrun$(EXE): prims.$(O) libcamlrun.$(A)
 	$(call MAKE_OCAMLRUN,$@,$^ $(LIBS))
 
-libcamlrun.$(A): libcamlrund.$(A)
-	cp $< $@
+libcamlrun.$(A): $(libcamlrun_OBJECTS)
+	$(call MKLIB,$@, $^)
 
 ocamlrund$(EXE): prims.$(O) libcamlrund.$(A)
 	$(MKEXE) $(MKEXEDEBUGFLAG) -o $@ $^ $(LIBS)
@@ -296,8 +296,8 @@ libcamlrun_pic.$(A): $(libcamlrunpic_OBJECTS)
 libcamlrun_shared.$(SO): $(libcamlrunpic_OBJECTS)
 	$(MKDLL) -o $@ $^ $(BYTECCLIBS)
 
-libasmrun.$(A): libasmrund.$(A)
-	cp $< $@
+libasmrun.$(A): $(libasmrun_OBJECTS)
+	$(call MKLIB,$@, $^)
 
 libasmrund.$(A): $(libasmrund_OBJECTS)
 	$(call MKLIB,$@, $^)

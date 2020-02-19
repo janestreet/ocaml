@@ -335,7 +335,7 @@ CAMLexport void caml_main(char_os **argv)
 
   /* Determine options */
 #ifdef DEBUG
-  caml_verb_gc = 0;
+  caml_verb_gc = 0x3F;
 #endif
   caml_parse_ocamlrunparam();
 #ifdef DEBUG
@@ -472,7 +472,7 @@ CAMLexport value caml_startup_code_exn(
 
   /* Determine options */
 #ifdef DEBUG
-  caml_verb_gc = 0;
+  caml_verb_gc = 0x3F;
 #endif
   caml_parse_ocamlrunparam();
 #ifdef DEBUG

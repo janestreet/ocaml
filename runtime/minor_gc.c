@@ -293,6 +293,7 @@ static void oldify_one_aux (value v, value *p, int add_to_ref)
             CAMLassert (sz == 1);
             p = &Field (result, 0);
             v = field0;
+            add_to_ref = 1;
             goto tail_call;
           }
         }
@@ -363,6 +364,7 @@ static void oldify_one_aux (value v, value *p, int add_to_ref)
             Field (v, 0) = result;      /*  and forward pointer. */
             p = &Field (result, 0);
             v = f;
+            add_to_ref = 1;
             goto tail_call;
           }
         }else{
