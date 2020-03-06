@@ -62,8 +62,8 @@ let main argv ppf =
           "Options -i and -stop-after (%s) \
            are  incompatible with -pack, -a, -output-obj"
           (String.concat "|"
-             (Clflags.Compiler_pass.available_pass_names ~native:false))
-      | Some P.Scheduling -> assert false (* native only *)
+            (P.available_pass_names ~filter:(fun _ -> true) ~native:false))
+      | Some (P.Scheduling | P.Emit)-> assert false (* native only *)
     end;
     if !make_archive then begin
       Compmisc.init_path ();
