@@ -2082,6 +2082,9 @@ let default_apply = Int.Set.add 2 (Int.Set.add 3 Int.Set.empty)
   (* These apply funs are always present in the main program because
      the run-time system needs them (cf. runtime/<arch>.S) . *)
 
+let probe_is_enabled ~name dbg =
+  tag_int (Cop(Cprobe_is_enabled {name}, [], dbg)) dbg
+
 let generic_functions shared units =
   let (apply,send,curry) =
     List.fold_left

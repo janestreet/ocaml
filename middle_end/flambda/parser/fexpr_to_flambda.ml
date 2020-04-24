@@ -741,6 +741,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         (Debuginfo.none)
         ~inline
         ~inlining_depth
+        ~probe_name:None
     in
     Flambda.Expr.create_apply apply
 

@@ -217,6 +217,7 @@ let simplify_direct_partial_application dacc apply ~callee's_code_id
           dbg
           ~inline:Default_inline
           ~inlining_depth:(Apply.inlining_depth apply)
+          ~probe_name:(Apply.probe_name apply)
       in
       List.fold_left (fun expr (closure_var, arg) ->
           match Simple.must_be_var arg with
@@ -610,6 +611,7 @@ let simplify_apply_shared dacc apply : _ Or_bottom.t =
           (DE.add_inlined_debuginfo' (DA.denv dacc) (Apply.dbg apply))
           ~inline:(Apply.inline apply)
           ~inlining_depth
+          ~probe_name:(Apply.probe_name apply)
       in
       Ok (callee_ty, apply, arg_types)
 

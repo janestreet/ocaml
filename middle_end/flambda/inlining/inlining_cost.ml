@@ -304,6 +304,10 @@ let binary_float_comp_primitive _op = 2
 
 (* Primitives sizes *)
 
+let nullary_prim_size (prim : Flambda_primitive.nullary_primitive) =
+  match prim with
+  | Probe_is_enabled _ -> 2
+
 let unary_prim_size prim =
   match (prim : Flambda_primitive.unary_primitive) with
   | Duplicate_array _ | Duplicate_block _ -> alloc_extcall_size + 1
@@ -368,6 +372,7 @@ let variadic_prim_size prim args =
 
 let prim_size (prim : Flambda_primitive.t) =
   match prim with
+  | Nullary p -> nullary_prim_size p
   | Unary (p, _) -> unary_prim_size p
   | Binary (p, _, _) -> binary_prim_size p
   | Ternary (p, _, _, _) -> ternary_prim_size p

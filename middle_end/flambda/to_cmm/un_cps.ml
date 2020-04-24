@@ -411,6 +411,10 @@ let binary_float_comp_primitive_yielding_int _env dbg x y =
 
 (* Primitives *)
 
+let nullary_primitive _env dbg f =
+  match (f : Flambda_primitive.nullary_primitive) with
+  | Probe_is_enabled { name; } -> None, C.probe_is_enabled ~name dbg
+
 let unary_primitive env dbg f arg =
   match (f : Flambda_primitive.unary_primitive) with
   | Duplicate_array _ ->
@@ -521,6 +525,9 @@ let arg_list env l =
    given to [Env.inline_variable]. *)
 let prim env dbg p =
   match (p : Flambda_primitive.t) with
+  | Nullary f ->
+    let extra, res = nullary_primitive env dbg f in
+    res, extra, env, Ece.pure
   | Unary (f, x) ->
     let x, env, eff = simple env x in
     let extra, res = unary_primitive env dbg f x in
@@ -941,7 +948,15 @@ and apply_call env e =
         args, env
     in
     let f_code = symbol (Code_id.code_symbol code_id) in
-    C.direct_call ~dbg ty (C.symbol f_code) args, env, effs
+    begin match Apply_expr.probe_name e with
+    | None -> C.direct_call ~dbg ty (C.symbol f_code) args, env, effs
+    | Some name ->
+      let cmm =
+        Cmm.Cop (Cprobe { name; handler_code_sym = f_code; }, args, dbg)
+        |> C.return_unit dbg
+      in
+      cmm, env, effs
+    end
   | Call_kind.Function
       Call_kind.Function_call.Indirect_unknown_arity ->
     let f, env, _ = simple env f in

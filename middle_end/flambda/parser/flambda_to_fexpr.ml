@@ -407,6 +407,7 @@ let varop (op : Flambda_primitive.variadic_primitive) : Fexpr.varop =
 
 let prim env (p : Flambda_primitive.t) : Fexpr.prim =
   match p with
+  | Nullary _ -> Misc.fatal_error "Not yet implemented"
   | Unary (op, arg) ->
     Unary (unop env op, simple env arg)
   | Binary (op, arg1, arg2) ->

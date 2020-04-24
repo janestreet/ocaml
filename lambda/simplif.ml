@@ -227,7 +227,9 @@ let simplify_exits lam =
                                      ap_func=f;
                                      ap_args=[x];
                                      ap_inlined=Default_inline;
-                                     ap_specialised=Default_specialise}
+                                     ap_specialised=Default_specialise;
+                                     ap_probe=None;
+                                    }
 
         (* Simplify %apply, for n-ary functions with n > 1 *)
       | Pdirapply, [Lapply ap; x]
@@ -238,7 +240,9 @@ let simplify_exits lam =
                                      ap_func=f;
                                      ap_args=[x];
                                      ap_inlined=Default_inline;
-                                     ap_specialised=Default_specialise}
+                                     ap_specialised=Default_specialise;
+                                     ap_probe=None
+                                    }
         (* Simplify %identity *)
       | Pidentity, [e] -> e
 
@@ -739,6 +743,7 @@ let split_default_wrapper ~id:fun_id ~kind ~params ~return ~body ~attr ~loc =
             ap_should_be_tailcall = false;
             ap_inlined = Default_inline;
             ap_specialised = Default_specialise;
+            ap_probe=None;
           }
         in
         let inner_params = List.map map_param (List.map fst params) in

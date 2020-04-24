@@ -98,6 +98,7 @@ let record_any_symbol_projection dacc (defining_expr : Reachable.t)
           Bindable_let_bound.print bindable_let_bound
           Named.print named
       end
+    | Nullary (Probe_is_enabled _)
     | Unary (
       ( Duplicate_block _
       | Duplicate_array _

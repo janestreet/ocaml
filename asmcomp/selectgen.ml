@@ -159,6 +159,8 @@ let oper_result_type = function
   | Cintoffloat -> typ_int
   | Craise _ -> typ_void
   | Ccheckbound -> typ_void
+  | Cprobe _ -> typ_void
+  | Cprobe_is_enabled _ -> typ_int
 
 (* Infer the size in bytes of the result of an expression whose evaluation
    may be deferred (cf. [emit_parts]). *)
@@ -400,7 +402,8 @@ method is_simple_expr = function
   | Cop(op, args, _) ->
       begin match op with
         (* The following may have side effects *)
-      | Capply _ | Cextcall _ | Calloc | Cstore _ | Craise _ -> false
+      | Capply _ | Cextcall _ | Calloc | Cstore _ | Craise _ | Cprobe _
+      | Cprobe_is_enabled _ -> false
         (* The remaining operations are simple if their args are *)
       | Cload _ | Caddi | Csubi | Cmuli | Cmulhi | Cdivi | Cmodi | Cand | Cor
       | Cxor | Clsl | Clsr | Casr | Ccmpi _ | Caddv | Cadda | Ccmpa _ | Cnegf
@@ -440,12 +443,13 @@ method effects_of exp =
   | Cop (op, args, _) ->
     let from_op =
       match op with
-      | Capply _ | Cextcall _ -> EC.arbitrary
+      | Capply _ | Cextcall _ | Cprobe _ -> EC.arbitrary
       | Calloc -> EC.none
       | Cstore _ -> EC.effect_only Effect.Arbitrary
       | Craise _ | Ccheckbound -> EC.effect_only Effect.Raise
       | Cload (_, Asttypes.Immutable) -> EC.none
       | Cload (_, Asttypes.Mutable) -> EC.coeffect_only Coeffect.Read_mutable
+      | Cprobe_is_enabled _ -> EC.coeffect_only Coeffect.Arbitrary
       | Caddi | Csubi | Cmuli | Cmulhi | Cdivi | Cmodi | Cand | Cor | Cxor
       | Clsl | Clsr | Casr | Ccmpi _ | Caddv | Cadda | Ccmpa _ | Cnegf | Cabsf
       | Caddf | Csubf | Cmulf | Cdivf | Cfloatofint | Cintoffloat | Ccmpf _ ->
@@ -480,7 +484,7 @@ method mark_tailcall = ()
 method mark_c_tailcall = ()
 
 method mark_instr = function
-  | Iop (Icall_ind _ | Icall_imm _ | Iextcall _) ->
+  | Iop (Icall_ind _ | Icall_imm _ | Iextcall _ | Iprobe _) ->
       self#mark_call
   | Iop (Itailcall_ind _ | Itailcall_imm _) ->
       self#mark_tailcall
@@ -575,6 +579,9 @@ method select_operation op args _dbg =
     let extra_args = self#select_checkbound_extra_args () in
     let op = self#select_checkbound () in
     self#select_arith op (args @ extra_args)
+  | (Cprobe { name; handler_code_sym; }, _) ->
+    Iprobe { name; handler_code_sym; }, args
+  | (Cprobe_is_enabled {name}, _) -> Iprobe_is_enabled {name}, []
   | _ -> Misc.fatal_error "Selection.select_oper"
 
 method private select_arith_comm op = function
@@ -871,6 +878,11 @@ method emit_expr (env:environment) exp =
               self#emit_stores env new_args rd;
               set_traps_for_raise env;
               Some rd
+          | (Iprobe _) as op ->
+              let r1 = self#emit_tuple env new_args in
+              let rd = self#regs_for ty in
+              set_traps_for_raise env;
+              Some (self#insert_op_debug env op dbg r1 rd)
           | op ->
               let r1 = self#emit_tuple env new_args in
               let rd = self#regs_for ty in
@@ -1405,6 +1417,9 @@ method emit_tail (env:environment) exp =
                   (env_handler.trap_stack,
                    instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv s2)))
         [||] [||]
+  | Cop (Cprobe _, _, _) ->
+      set_traps_for_raise env;
+      self#emit_return env exp (pop_all_traps env)
   | Cop _
   | Cconst_int _ | Cconst_natint _ | Cconst_float _ | Cconst_symbol _
   | Cconst_pointer _ | Cconst_natpointer _ | Cblockheader _

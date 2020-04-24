@@ -593,6 +593,8 @@ val send :
   Lambda.meth_kind -> expression -> expression -> expression list ->
   Debuginfo.t -> expression
 
+val probe_is_enabled : name:string -> Debuginfo.t -> expression
+
 (** Generic Cmm fragments *)
 
 (** Generate generic functions *)

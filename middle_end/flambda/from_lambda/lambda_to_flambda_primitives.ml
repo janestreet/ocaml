@@ -1023,6 +1023,12 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
         or [Closure_conversion] or the wrong number of arguments"
       Printlambda.primitive prim
       H.print_list_of_simple_or_prim args
+  | Pprobe_is_enabled { name; }, [] ->
+    Nullary (Probe_is_enabled { name; })
+  | Pprobe_is_enabled _, (_ :: _) ->
+    Misc.fatal_errorf "Closure_conversion.convert_primitive: \
+        Wrong arity for nullary primitive %a"
+      Printlambda.primitive prim
   | ( Pfield _ | Pnegint | Pnot | Poffsetint _ | Pintoffloat | Pfloatofint
     | Pnegfloat | Pabsfloat | Pstringlength | Pbyteslength | Pgettag
     | Pbintofint _ | Pintofbint _ | Pnegbint _ | Popaque | Pduprecord _
