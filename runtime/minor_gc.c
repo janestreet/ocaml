@@ -89,6 +89,8 @@ CAMLexport value *caml_young_trigger = NULL;
 
 CAMLexport struct caml_ref_table
   caml_ref_table = { NULL, NULL, NULL, NULL, NULL, 0, 0};
+CAMLexport struct caml_ref_table
+  caml_ref_table_aux = { NULL, NULL, NULL, NULL, NULL, 0, 0};
 
 CAMLexport struct caml_ephe_ref_table
   caml_ephe_ref_table = { NULL, NULL, NULL, NULL, NULL, 0, 0};
@@ -493,42 +495,44 @@ void caml_empty_minor_heap (double aging_ratio)
   struct caml_custom_elt *elt, *keep_elt;
   uintnat prev_alloc_words;
   struct caml_ephe_ref_elt *re, *keep_re;
+  struct caml_ref_table old_ref_table;
 
+  CAMLassert (aging_ratio >= 0. && aging_ratio <= 1.);
+  caml_latest_aging_ratio = aging_ratio;
   if (caml_minor_gc_begin_hook != NULL) (*caml_minor_gc_begin_hook) ();
   CAML_INSTR_SETUP (tmr, "minor");
   prev_alloc_words = caml_allocated_words;
   caml_in_minor_collection = 1;
   caml_gc_message (0x02, "<");
   caml_oldify_init ();
-  /* First, oldify generational global roots and the remembered set.
-     Everything (recursively) pointed by these goes into the major heap.
-  */
+
+  /* Switch to a new ref_table. */
+  CAMLassert (caml_ref_table_aux.base == NULL);
+  old_ref_table = caml_ref_table;
+  caml_ref_table = caml_ref_table_aux;
+  caml_ref_table_aux = old_ref_table;
+
   aging_limit = caml_young_alloc_start;
   caml_oldify_minor_long_lived_roots ();
   CAML_INSTR_TIME (tmr, "minor/long_lived_roots");
-  for (r = caml_ref_table.base; r < caml_ref_table.ptr; r++) {
-    oldify_one_aux (**r, *r, 0);
-  }
-  CAML_INSTR_TIME (tmr, "minor/ref_table");
-  caml_oldify_mopup ();
-  CAML_INSTR_TIME (tmr, "minor/copy1");
-  /* Empty the remembered set to prepare for the following. */
-  clear_table ((struct generic_table *) &caml_ref_table,
-               (char *) caml_ref_table.base);
-  /* Then, oldify all other roots while keeping the most recent blocks
-     in the minor heap.
-  */
-  CAMLassert (aging_ratio >= 0. && aging_ratio <= 1.);
-  caml_latest_aging_ratio = aging_ratio;
+
   aging_limit =
     caml_young_alloc_start
     + (uintnat)((caml_young_alloc_end - caml_young_alloc_start)
                 * aging_ratio);
   CAMLassert (aging_limit <= caml_young_alloc_end);
+
+  for (r = old_ref_table.base; r < old_ref_table.ptr; r++) {
+    oldify_one_aux (**r, *r, 1);
+  }
+  /* Empty the old remembered set to prepare for next cycle. */
+  clear_table ((struct generic_table *) &caml_ref_table_aux,
+               (char *) caml_ref_table_aux.base);
+  CAML_INSTR_TIME (tmr, "minor/ref_table");
   caml_oldify_minor_short_lived_roots ();
   CAML_INSTR_TIME (tmr, "minor/short_lived_roots");
   caml_oldify_mopup ();
-  CAML_INSTR_TIME (tmr, "minor/copy2");
+  CAML_INSTR_TIME (tmr, "minor/copy");
   /* Update the ephemerons */
   for (re = keep_re = caml_ephe_ref_table.base;
        re < caml_ephe_ref_table.ptr; re++){

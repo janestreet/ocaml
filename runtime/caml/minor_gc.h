@@ -121,7 +121,7 @@ static inline void add_to_custom_table (struct caml_custom_table *tbl, value v,
   elt->max = max;
 }
 
-/* Convenience macros for minor_gc.c and finalise.c */
+/* Convenience macros for minor_gc.c, memprof.c, finalise.c */
 #define Kept_in_minor_heap(v) \
   (CAMLassert (Is_block (v)), \
    Is_black_val (v) \
