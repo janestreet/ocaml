@@ -918,6 +918,8 @@ and transl_prim_2 env p arg1 arg2 dbg =
   | Pcompare_floats ->
       let a1 = transl_unbox_float dbg env arg1 in
       let a2 = transl_unbox_float dbg env arg2 in
+      check_no_side_effects dbg a1;
+      check_no_side_effects dbg a2;
       let op1 = Cop(Ccmpf(CFgt), [a1; a2], dbg) in
       let op2 = Cop(Ccmpf(CFlt), [a1; a2], dbg) in
       let op3 = Cop(Ccmpf(CFeq), [a1; a1], dbg) in

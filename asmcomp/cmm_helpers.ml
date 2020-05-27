@@ -20,6 +20,57 @@ module VP = Backend_var.With_provenance
 open Cmm
 open Arch
 
+let rec has_no_side_effects = function
+  | Cvar _
+  | Cconst_int _
+  | Cconst_natint _
+  | Cconst_float _
+  | Cconst_pointer _
+  | Cconst_symbol _
+  | Cblockheader _ -> true
+
+  | Cexit (_, exps) ->
+    List.for_all has_no_side_effects exps
+  | Cifthenelse(cond, _, ifso, _, ifnot, _) ->
+    has_no_side_effects cond && has_no_side_effects ifso && has_no_side_effects ifnot
+  | Clet (_, e, body) ->
+    has_no_side_effects e && has_no_side_effects body
+
+  | Csequence (e1,e2) ->
+    has_no_side_effects e1 && has_no_side_effects e2
+
+  | Ccatch (_rec, cases, body) ->
+    has_no_side_effects body &&
+    List.for_all (fun (_, _, e, _) -> has_no_side_effects e) cases
+
+  | Cop((Cload _|Caddi|Csubi|Cmuli|Cmulhi|Cdivi|Cmodi|
+         Cand|Cor|Cxor|Clsl|Clsr|Casr|
+         Ccmpi _|Caddv|Cadda|Ccmpa _|
+         Cnegf|Cabsf|Caddf|Csubf|Cmulf|Cdivf|
+         Cfloatofint|Cintoffloat|
+         Ccmpf _|
+         Craise _|
+         Ccheckbound|
+         Cextcall(("caml_float_of_string"|
+                   "caml_int64_bits_of_float_unboxed"|
+                   "caml_int64_float_of_bits_unboxed"|
+                   "caml_int32_direct_bswap"|
+                   "caml_int64_direct_bswap"|
+                   "caml_hash"|
+                   "caml_int64_to_float_unboxed"), _, _, _)
+        ), args, _dbg) ->
+    List.for_all has_no_side_effects args
+  | _ -> false
+
+let check_no_side_effects dbg e =
+  if has_no_side_effects e then ()
+  else begin
+    let fd =
+      open_out_gen [Open_append; Open_creat] 0o666 "/tmp/comparebug.txt" in
+    Format.fprintf Format.(formatter_of_out_channel fd) "Duplicated code in %s:@.[%s]@.%a@.\n%!" (Debuginfo.to_string dbg) (Sys.getcwd ()) Printcmm.expression e;
+    close_out fd
+  end
+
 (* Local binding of complex expressions *)
 
 let bind name arg fn =
@@ -275,6 +326,8 @@ let mk_not dbg cmm =
 
 
 let mk_compare_ints dbg a1 a2 =
+  check_no_side_effects dbg a1;
+  check_no_side_effects dbg a2;
   match (a1,a2) with
   | Cconst_int (c1, _), Cconst_int (c2, _) ->
      int_const dbg (Int.compare c1 c2)

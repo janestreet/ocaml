@@ -15,6 +15,8 @@
 
 open Cmm
 
+val check_no_side_effects : Debuginfo.t -> expression -> unit
+
 (** [bind name arg fn] is equivalent to [let name = arg in fn name],
     or simply [fn arg] if [arg] is simple enough *)
 val bind :
