@@ -1,5 +1,5 @@
 (* TEST
-
+(*
 files="param.mli param2.mli m1.ml m2.ml n.ml use_make.ml"
 
 * setup-ocamlc.byte-build-env
@@ -80,4 +80,5 @@ all_modules = "make.cmx use_make.cmx"
 ************ check-program-output
 reference = "${test_source_directory}/use_make.reference"
 
+*)
 *)
