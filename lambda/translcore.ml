@@ -369,6 +369,9 @@ and transl_exp0 ~scopes e =
         | Record_extension _ ->
           Lprim (Pfield (lbl.lbl_pos + 1), [targ],
                  of_location ~scopes e.exp_loc)
+        | Record_flat ls ->
+          Lprim (Pflatfield (lbl.lbl_pos, ls), [targ],
+                 of_location ~scopes e.exp_loc)
       end
   | Texp_setfield(arg, _, lbl, newval) ->
       let access =
@@ -380,6 +383,8 @@ and transl_exp0 ~scopes e =
         | Record_float -> Psetfloatfield (lbl.lbl_pos, Assignment)
         | Record_extension _ ->
           Psetfield (lbl.lbl_pos + 1, maybe_pointer newval, Assignment)
+        | Record_flat ls ->
+          Psetflatfield (lbl.lbl_pos, ls, Assignment)
       in
       Lprim(access, [transl_exp ~scopes arg; transl_exp ~scopes newval],
             of_location ~scopes e.exp_loc)
@@ -997,7 +1002,8 @@ and transl_record ~scopes loc env fields repres opt_init_expr =
                    Record_regular | Record_inlined _ -> Pfield i
                  | Record_unboxed _ -> assert false
                  | Record_extension _ -> Pfield (i + 1)
-                 | Record_float -> Pfloatfield i in
+                 | Record_float -> Pfloatfield i
+                 | Record_flat ls -> Pflatfield (i, ls) in
                Lprim(access, [Lvar init_id],
                      of_location ~scopes loc),
                field_kind
@@ -1023,6 +1029,9 @@ and transl_record ~scopes loc env fields repres opt_init_expr =
             Lconst(Const_float_array(List.map extract_float cl))
         | Record_extension _ ->
             raise Not_constant
+        | Record_flat _ls ->
+           (* FIXME_layout: nothing wrong with flat constants! TODO. *)
+           raise Not_constant
       with Not_constant ->
         let loc = of_location ~scopes loc in
         match repres with
@@ -1036,6 +1045,8 @@ and transl_record ~scopes loc env fields repres opt_init_expr =
         | Record_extension path ->
             let slot = transl_extension_path loc env path in
             Lprim(Pmakeblock(0, mut, Some (Pgenval :: shape)), slot :: ll, loc)
+        | Record_flat ls ->
+            Lprim(Pmakeflatblock(mut, ls), ll, loc)
     in
     begin match opt_init_expr with
       None -> lam
@@ -1059,6 +1070,8 @@ and transl_record ~scopes loc env fields repres opt_init_expr =
             | Record_float -> Psetfloatfield (lbl.lbl_pos, Assignment)
             | Record_extension _ ->
                 Psetfield(lbl.lbl_pos + 1, maybe_pointer expr, Assignment)
+            | Record_flat ls ->
+                Psetflatfield(lbl.lbl_pos, ls, Assignment)
           in
           Lsequence(Lprim(upd, [Lvar copy_id; transl_exp ~scopes expr],
                           of_location ~scopes loc),

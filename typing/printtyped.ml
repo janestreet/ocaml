@@ -155,12 +155,25 @@ let arg_label i ppf = function
   | Labelled s -> line i ppf "Labelled \"%s\"\n" s
 ;;
 
+let layout ppf l =
+  match l with
+  | [] -> fprintf ppf "[]"
+  | l :: ls ->
+    fprintf ppf "[%s" (Types.Layout.to_string l);
+    List.iter (fun s -> fprintf ppf " %s" (Types.Layout.to_string s)) ls;
+    fprintf ppf "]"
+;;
+
 let record_representation i ppf = let open Types in function
   | Record_regular -> line i ppf "Record_regular\n"
   | Record_float -> line i ppf "Record_float\n"
   | Record_unboxed b -> line i ppf "Record_unboxed %b\n" b
   | Record_inlined i -> line i ppf "Record_inlined %d\n" i
   | Record_extension p -> line i ppf "Record_extension %a\n" fmt_path p
+  | Record_flat ls ->
+     line i ppf "Record_flat\n";
+     ls |> List.iter (fun l ->
+       line (i+1) ppf "%a\n" layout l)
 
 let attribute i ppf k a =
   line i ppf "%s \"%s\"\n" k a.Parsetree.attr_name.txt;
@@ -461,14 +474,6 @@ and variance ppf p =
     | Covariant -> "Covariant"
     | Contravariant -> "Contravariant" in
   fprintf ppf "%s" s
-
-and layout ppf l =
-  match l with
-  | [] -> fprintf ppf "[]"
-  | l :: ls ->
-    fprintf ppf "[%s" (Types.Layout.to_string l);
-    List.iter (fun s -> fprintf ppf " %s" (Types.Layout.to_string s)) ls;
-    fprintf ppf "]"
 
 and type_parameter i ppf p =
   line i ppf "typa_type =\n";

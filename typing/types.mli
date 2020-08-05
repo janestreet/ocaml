@@ -362,6 +362,12 @@ module Layout : sig
   val is_compilable : t -> bool
   val equal_any : t -> bool
   val approx_compilable : t -> t
+
+  val alignment_bytes : t -> int
+  (* always a power of 2 *)
+
+  val size_in_bytes : t -> int
+  (* always nonnegative multiple of alignment, but possibly 0 *)
 end
 
 (* Type definitions *)
@@ -397,6 +403,7 @@ and record_representation =
   | Record_unboxed of bool    (* Unboxed single-field record, inlined or not *)
   | Record_inlined of int               (* Inlined record *)
   | Record_extension of Path.t          (* Inlined record under extension *)
+  | Record_flat of layout list          (* Record with unboxed fields *)
 
 and label_declaration =
   {

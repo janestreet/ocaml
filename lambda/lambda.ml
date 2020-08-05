@@ -51,10 +51,13 @@ type primitive =
   | Psetglobal of Ident.t
   (* Operations on heap blocks *)
   | Pmakeblock of int * mutable_flag * block_shape
+  | Pmakeflatblock of mutable_flag * Types.layout list
   | Pfield of int
   | Pfield_computed
   | Psetfield of int * immediate_or_pointer * initialization_or_assignment
   | Psetfield_computed of immediate_or_pointer * initialization_or_assignment
+  | Pflatfield of int * Types.layout list
+  | Psetflatfield of int * Types.layout list * initialization_or_assignment
   | Pfloatfield of int
   | Psetfloatfield of int * initialization_or_assignment
   | Pduprecord of Types.record_representation * int
@@ -205,7 +208,6 @@ let equal_value_kind x y =
   | Pboxedintval bi1, Pboxedintval bi2 -> equal_boxed_integer bi1 bi2
   | Pintval, Pintval -> true
   | (Pgenval | Pfloatval | Pboxedintval _ | Pintval), _ -> false
-
 
 type structured_constant =
     Const_base of constant
@@ -899,6 +901,27 @@ let function_is_curried func =
   match func.kind with
   | Curried -> true
   | Tupled -> false
+
+let flat_field_offset n (ls : Types.layout list) =
+  let module L = Types.Layout in
+  let align_up l off =
+    let align = L.alignment_bytes l in
+    ((off + align - 1) / align) * align in
+  let rec go n ls off =
+    match ls with
+    | [] -> assert false
+    | l::ls ->
+       let off = align_up l off in
+       if n = 0 then off
+       else go (n-1) ls (off + L.size_in_bytes l) in
+  go n ls 0
+
+let flat_record_words (ls : Types.layout list) =
+  let bytes = flat_field_offset (List.length ls) (ls @ [Types.Layout.immediate]) in
+  (* FIXME_layout: Sys.word_size cross-compilation issues? *)
+  let word = Sys.word_size / 8 in
+  assert (bytes mod word = 0);
+  bytes / word
 
 let reset () =
   raise_count := 0

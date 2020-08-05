@@ -112,8 +112,9 @@ let preserve_tailcall_for_prim = function
     Pidentity | Popaque | Pdirapply | Prevapply | Psequor | Psequand ->
       true
   | Pbytes_to_string | Pbytes_of_string | Pignore | Pgetglobal _ | Psetglobal _
-  | Pmakeblock _ | Pfield _ | Pfield_computed | Psetfield _
-  | Psetfield_computed _ | Pfloatfield _ | Psetfloatfield _ | Pduprecord _
+  | Pmakeblock _ | Pmakeflatblock _ | Pfield _ | Pfield_computed | Psetfield _
+  | Psetfield_computed _ | Pflatfield _ | Psetflatfield _
+  | Pfloatfield _ | Psetfloatfield _ | Pduprecord _
   | Pccall _ | Praise _ | Pnot | Pnegint | Paddint | Psubint | Pmulint
   | Pdivint _ | Pmodint _ | Pandint | Porint | Pxorint | Plslint | Plsrint
   | Pasrint | Pintcomp _ | Poffsetint _ | Poffsetref _ | Pintoffloat
@@ -184,6 +185,7 @@ let rec size_of_lambda env = function
       begin match kind with
       | Record_regular | Record_inlined _ -> RHS_block size
       | Record_unboxed _ -> assert false
+      | Record_flat _ -> RHS_nonrec
       | Record_float -> RHS_floatblock size
       | Record_extension _ -> RHS_block (size + 1)
       end
@@ -782,6 +784,10 @@ let rec comp_expr env exp sz cont =
   | Lprim(Pmakeblock(tag, _mut, _), args, loc) ->
       let cont = add_pseudo_event loc !compunit_name cont in
       comp_args env args sz (Kmakeblock(List.length args, tag) :: cont)
+  | Lprim(Pflatfield (_n, _ls), [_arg], _loc) ->
+      Misc.fatal_error "Bytegen.comp_expr: Pflatfield unimplemented"
+  | Lprim(Psetflatfield (_n, _ls, _init), [_obj; _val], _loc) ->
+      Misc.fatal_error "Bytegen.comp_expr: Psetflatfield unimplemented"
   | Lprim(Pfloatfield n, args, loc) ->
       let cont = add_pseudo_event loc !compunit_name cont in
       comp_args env args sz (Kgetfloatfield n :: cont)

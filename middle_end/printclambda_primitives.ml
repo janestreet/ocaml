@@ -61,6 +61,10 @@ let primitive ppf (prim:Clambda_primitives.primitive) =
       fprintf ppf "makeblock %i%a" tag Printlambda.block_shape shape
   | Pmakeblock(tag, Mutable, shape) ->
       fprintf ppf "makemutable %i%a" tag Printlambda.block_shape shape
+  | Pmakeflatblock(Immutable, layouts) ->
+      fprintf ppf "makeflatblock %a" Printlambda.layouts layouts
+  | Pmakeflatblock(Mutable, layouts) ->
+      fprintf ppf "makeflatblock_mut %a" Printlambda.layouts layouts
   | Pfield n -> fprintf ppf "field %i" n
   | Pfield_computed -> fprintf ppf "field_computed"
   | Psetfield(n, ptr, init) ->
@@ -89,6 +93,16 @@ let primitive ppf (prim:Clambda_primitives.primitive) =
         | Assignment -> ""
       in
       fprintf ppf "setfield_%s%s_computed" instr init
+  | Pflatfield (n, ls) ->
+      fprintf ppf "flatfield %i %a" n Printlambda.layouts ls
+  | Psetflatfield (n, ls, init) ->
+      let init =
+        match init with
+        | Heap_initialization -> "(heap-init)"
+        | Root_initialization -> "(root-init)"
+        | Assignment -> ""
+      in
+      fprintf ppf "setflatfield_%s %i %a" init n Printlambda.layouts ls
   | Pfloatfield n -> fprintf ppf "floatfield %i" n
   | Psetfloatfield (n, init) ->
       let init =

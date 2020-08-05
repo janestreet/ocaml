@@ -199,6 +199,12 @@ val set_field :
   expression -> int -> expression -> Lambda.initialization_or_assignment ->
   Debuginfo.t -> expression
 
+val get_flat_field :
+  expression -> int -> Types.Layout.t list -> Debuginfo.t -> expression
+val set_flat_field :
+  expression -> int -> Types.Layout.t list -> expression
+  -> Debuginfo.t -> expression
+
 (** Load a block's header *)
 val get_header : expression -> Debuginfo.t -> expression
 
@@ -298,6 +304,10 @@ val make_alloc : Debuginfo.t -> int -> expression list -> expression
 
 (** Allocate a block of unboxed floats with the given tag *)
 val make_float_alloc : Debuginfo.t -> int -> expression list -> expression
+
+(** Allocate a block of unboxed values *)
+val make_flat_alloc :
+  Debuginfo.t -> Types.layout list -> expression list -> expression
 
 (** Bounds checking *)
 

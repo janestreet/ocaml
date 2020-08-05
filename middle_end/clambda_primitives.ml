@@ -34,10 +34,13 @@ type primitive =
   | Pread_symbol of string
   (* Operations on heap blocks *)
   | Pmakeblock of int * mutable_flag * block_shape
+  | Pmakeflatblock of mutable_flag * Types.layout list
   | Pfield of int
   | Pfield_computed
   | Psetfield of int * immediate_or_pointer * initialization_or_assignment
   | Psetfield_computed of immediate_or_pointer * initialization_or_assignment
+  | Pflatfield of int * Types.layout list
+  | Psetflatfield of int * Types.layout list * initialization_or_assignment
   | Pfloatfield of int
   | Psetfloatfield of int * initialization_or_assignment
   | Pduprecord of Types.record_representation * int

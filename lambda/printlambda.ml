@@ -105,6 +105,19 @@ let print_bigarray name unsafe kind ppf layout =
      | Pbigarray_c_layout -> "C"
      | Pbigarray_fortran_layout -> "Fortran")
 
+let layout ppf = function
+  | [] -> fprintf ppf "()"
+  | [l] -> fprintf ppf "%s" (Layout.to_string l)
+  | ls ->
+     fprintf ppf "(%s)" 
+       (String.concat " * " (List.map Layout.to_string ls))
+
+let layouts ppf ls =
+  fprintf ppf "(";
+  List.iteri (fun i l ->
+    fprintf ppf "%s%a" (if i = 0 then "" else " ") layout l) ls;
+  fprintf ppf ")"
+
 let record_rep ppf r =
   match r with
   | Record_regular -> fprintf ppf "regular"
@@ -113,6 +126,13 @@ let record_rep ppf r =
   | Record_unboxed true -> fprintf ppf "inlined(unboxed)"
   | Record_float -> fprintf ppf "float"
   | Record_extension path -> fprintf ppf "ext(%a)" Printtyp.path path
+  | Record_flat layouts ->
+     fprintf ppf "flat(";
+     layouts |> List.iteri (fun i l ->
+       fprintf ppf "%s%s"
+         (if i = 0 then "" else " ")
+         (String.concat " * " (List.map Layout.to_string l)));
+     fprintf ppf ")"
 ;;
 
 let block_shape ppf shape = match shape with
@@ -160,6 +180,10 @@ let primitive ppf = function
       fprintf ppf "makeblock %i%a" tag block_shape shape
   | Pmakeblock(tag, Mutable, shape) ->
       fprintf ppf "makemutable %i%a" tag block_shape shape
+  | Pmakeflatblock(Immutable, shape) ->
+      fprintf ppf "makeflatblock %a" layouts shape
+  | Pmakeflatblock(Mutable, shape) ->
+      fprintf ppf "makeflatblock_mut %a" layouts shape
   | Pfield n -> fprintf ppf "field %i" n
   | Pfield_computed -> fprintf ppf "field_computed"
   | Psetfield(n, ptr, init) ->
@@ -188,6 +212,16 @@ let primitive ppf = function
         | Assignment -> ""
       in
       fprintf ppf "setfield_%s%s_computed" instr init
+  | Pflatfield (n, ls) ->
+      fprintf ppf "flatfield %i %a" n layouts ls
+  | Psetflatfield (n, ls, init) ->
+      let init =
+        match init with
+        | Heap_initialization -> "(heap-init)"
+        | Root_initialization -> "(root-init)"
+        | Assignment -> ""
+      in
+      fprintf ppf "setflatfield_%s %i %a" init n layouts ls
   | Pfloatfield n -> fprintf ppf "floatfield %i" n
   | Psetfloatfield (n, init) ->
       let init =
@@ -356,10 +390,13 @@ let name_of_primitive = function
   | Pgetglobal _ -> "Pgetglobal"
   | Psetglobal _ -> "Psetglobal"
   | Pmakeblock _ -> "Pmakeblock"
+  | Pmakeflatblock _ -> "Pmakeflatblock"
   | Pfield _ -> "Pfield"
   | Pfield_computed -> "Pfield_computed"
   | Psetfield _ -> "Psetfield"
   | Psetfield_computed _ -> "Psetfield_computed"
+  | Pflatfield _ -> "Pflatfield"
+  | Psetflatfield _ -> "Psetflatfield"
   | Pfloatfield _ -> "Pfloatfield"
   | Psetfloatfield _ -> "Psetfloatfield"
   | Pduprecord _ -> "Pduprecord"

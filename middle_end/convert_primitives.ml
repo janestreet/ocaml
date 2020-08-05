@@ -26,12 +26,16 @@ let convert (prim : Lambda.primitive) : Clambda_primitives.primitive =
   match prim with
   | Pmakeblock (tag, mutability, shape) ->
       Pmakeblock (tag, mutability, shape)
+  | Pmakeflatblock (mutability, layout) ->
+      Pmakeflatblock (mutability, layout)
   | Pfield field -> Pfield field
   | Pfield_computed -> Pfield_computed
   | Psetfield (field, imm_or_pointer, init_or_assign) ->
       Psetfield (field, imm_or_pointer, init_or_assign)
   | Psetfield_computed (imm_or_pointer, init_or_assign) ->
       Psetfield_computed (imm_or_pointer, init_or_assign)
+  | Pflatfield (field, ls) -> Pflatfield (field, ls)
+  | Psetflatfield (field, ls, init) -> Psetflatfield (field, ls, init)
   | Pfloatfield field -> Pfloatfield field
   | Psetfloatfield (field, init_or_assign) ->
       Psetfloatfield (field, init_or_assign)

@@ -1338,6 +1338,71 @@ let box_sized size dbg exp =
   | Thirty_two -> box_int_gen dbg Pint32 exp
   | Sixty_four -> box_int_gen dbg Pint64 exp
 
+
+let get_flat_field ptr n (ls : Types.layout list) dbg =
+  let offs = Lambda.flat_field_offset n ls in
+  let addr = Cop(Cadda, [ptr; Cconst_int (offs, dbg)], dbg) in
+  (* FIXME_layout would be better not to box here! *)
+  match List.nth ls n with
+  | [PLbits Pint32] ->
+     box_int_gen dbg Pint32
+       (sign_extend_32 dbg
+          (Cop(Cload(Thirtytwo_signed, Mutable), [addr], dbg)))
+  | [PLbits Pint64] when size_int < 8 ->
+     (* FIXME_layout support this *)
+     Misc.fatal_error
+       "Cmm_helpers.get_flat_field: flat 64-bit loads unsupported on 32-bit platforms"
+  | [PLbits Pint64] ->
+     box_int_gen dbg Pint64
+       (Cop(Cload(Word_int, Mutable), [addr], dbg))
+  | [PLbits Pnativeint] ->
+     box_int_gen dbg Pnativeint
+       (Cop(Cload(Word_int, Mutable), [addr], dbg))
+  | [PLfloat] ->
+     box_float dbg (Cop(Cload(Double_u, Mutable), [addr], dbg))
+  | p when Types.Layout.subset p Types.Layout.immediate ->
+     Cop(Cload(Word_int, Mutable), [addr], dbg)
+  | _ -> Misc.fatal_error
+           "Cmm_helpers.get_flat_field: unsupported flat field type"
+
+let set_flat_field ptr n (ls : Types.layout list) newval dbg =
+  let offs = Lambda.flat_field_offset n ls in
+  let init : Lambda.initialization_or_assignment = Assignment in
+  let addr = Cop(Cadda, [ptr; Cconst_int(offs, dbg)], dbg) in
+  (* FIXME_layout better not to box! *)
+  match List.nth ls n with
+  | [PLbits Pint32] ->
+     let value = low_32 dbg (unbox_int dbg Pint32 newval) in
+     Cop(Cstore(Thirtytwo_signed, init), [addr; value], dbg)
+  | [PLbits Pint64] when size_int < 8 ->
+     (* FIXME_layout support this *)
+     Misc.fatal_error
+       "Cmm_helpers.set_flat_field: flat 64-bits stores unsupported on 32-bit platforms"
+  | [PLbits Pint64] ->
+     let value = unbox_int dbg Pint64 newval in
+     Cop(Cstore(Word_int, init), [addr; value], dbg)
+  | [PLbits Pnativeint] ->
+     let value = unbox_int dbg Pnativeint newval in
+     Cop(Cstore(Word_int, init), [addr; value], dbg)
+  | [PLfloat] ->
+     let value = unbox_float dbg newval in
+     Cop(Cstore(Double_u, init), [addr; value], dbg)
+  | p when Types.Layout.subset p Types.Layout.immediate ->
+     Cop(Cstore(Word_int, init), [addr; newval], dbg)
+  | _ -> Misc.fatal_error
+           "Cmm_helpers.set_flat_field: unsupported flat field type"
+
+let make_flat_alloc dbg ls args =
+  let length = Lambda.flat_record_words ls in
+  let fields = List.mapi (fun i e -> i, e) args in
+  bind "alloc"
+    (make_alloc dbg Obj.abstract_tag
+       (List.init length (fun _ -> Cconst_int (0, dbg))))
+    (fun alloc ->
+      List.fold_right (fun (i, e) rest ->
+        Csequence (set_flat_field alloc i ls e dbg, rest))
+        fields alloc)
+
 (* Simplification of some primitives into C calls *)
 
 let default_prim name =

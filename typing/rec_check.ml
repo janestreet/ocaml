@@ -627,7 +627,7 @@ let rec expression : Typedtree.expression -> term_judg =
     | Texp_record { fields = es; extended_expression = eo;
                     representation = rep } ->
         let field_mode = match rep with
-          | Record_float -> Dereference
+          | Record_float | Record_flat _ -> Dereference
           | Record_unboxed _ -> Return
           | Record_regular | Record_inlined _
           | Record_extension _ -> Guard

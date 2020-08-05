@@ -312,6 +312,25 @@ module Layout = struct
     | _ -> false
   let approx_compilable x =
     List.map (function PLany -> PLvalue | l -> l) x
+
+  let word_aligned = Sys.word_size / 8
+  let prim_size = function
+    | PLany -> failwith "size of any_layout is undefined"
+    | PLvalue | PLimmediate | PLboxed_float | PLboxed_int _ ->
+       word_aligned
+    | PLfloat -> 8
+    | PLbits Pint32 -> 4
+    | PLbits Pint64 -> 8
+    | PLbits Pnativeint -> word_aligned
+  let alignment_bytes l =
+    (* Primitives are naturally aligned, so the alignment
+       of a layout is the size of its biggest component *)
+    List.fold_left (fun a l -> max a (prim_size l)) 1 l
+
+  let size_in_bytes = function
+    | [ l ] -> prim_size l
+    (* FIXME_layout *)
+    | _ -> Misc.fatal_errorf "Layout.size_in_bytes: unsupported unboxed tuple"
 end
 
 (* Type definitions *)
@@ -346,6 +365,7 @@ and record_representation =
   | Record_unboxed of bool    (* Unboxed single-field record, inlined or not *)
   | Record_inlined of int               (* Inlined record *)
   | Record_extension of Path.t          (* Inlined record under extension *)
+  | Record_flat of layout list          (* Record with unboxed fields *)
 
 and label_declaration =
   {

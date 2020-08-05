@@ -102,3 +102,18 @@ type s = #float big
 [%%expect{|
 type s : any_layout = #float big
 |}]
+
+
+type ('a : bits32, 'b) bad_record = { foo : 'a; bar : 'b }
+[%%expect{|
+Line 1, characters 0-58:
+1 | type ('a : bits32, 'b) bad_record = { foo : 'a; bar : 'b }
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: The field bar of this flat record has layout value
+       Records cannot contain a mixture of value and flat layouts
+|}]
+
+type ('a : bits32, 'b : immediate) good_record = { foo : 'a; bar : 'b }
+[%%expect{|
+type ('a : bits32, 'b : immediate) good_record = { foo : 'a; bar : 'b; }
+|}]

@@ -2075,6 +2075,8 @@ let make_record_matching loc all_labels def = function
             | Record_float -> Lprim (Pfloatfield lbl.lbl_pos, [ arg ], loc)
             | Record_extension _ ->
                 Lprim (Pfield (lbl.lbl_pos + 1), [ arg ], loc)
+            | Record_flat ls ->
+               Lprim (Pflatfield (lbl.lbl_pos, ls), [ arg ], loc)
           in
           let str =
             match lbl.lbl_mut with

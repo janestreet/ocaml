@@ -115,6 +115,7 @@ let pduparray = "Pduparray"
 let pduprecord = "Pduprecord"
 let pfield = "Pfield"
 let pfield_computed = "Pfield_computed"
+let pflatfield = "Pflatfield"
 let pfloatcomp = "Pfloatcomp"
 let pfloatfield = "Pfloatfield"
 let pfloatofint = "Pfloatofint"
@@ -136,6 +137,7 @@ let plsrbint = "Plsrbint"
 let plsrint = "Plsrint"
 let pmakearray = "Pmakearray"
 let pmakeblock = "Pmakeblock"
+let pmakeflatblock = "Pmakeflatblock"
 let pmodbint = "Pmodbint"
 let pmodint = "Pmodint"
 let pmulbint = "Pmulbint"
@@ -159,6 +161,7 @@ let psequand = "Psequand"
 let psequor = "Psequor"
 let psetfield = "Psetfield"
 let psetfield_computed = "Psetfield_computed"
+let psetflatfield = "Psetflatfield"
 let psetfloatfield = "Psetfloatfield"
 let psetglobal = "Psetglobal"
 let pstring_load_16 = "Pstring_load_16"
@@ -218,6 +221,7 @@ let pduparray_arg = "Pduparray_arg"
 let pduprecord_arg = "Pduprecord_arg"
 let pfield_arg = "Pfield_arg"
 let pfield_computed_arg = "Pfield_computed_arg"
+let pflatfield_arg = "Pflatfield_arg"
 let pfloatcomp_arg = "Pfloatcomp_arg"
 let pfloatfield_arg = "Pfloatfield_arg"
 let pfloatofint_arg = "Pfloatofint_arg"
@@ -239,6 +243,7 @@ let plsrbint_arg = "Plsrbint_arg"
 let plsrint_arg = "Plsrint_arg"
 let pmakearray_arg = "Pmakearray_arg"
 let pmakeblock_arg = "Pmakeblock_arg"
+let pmakeflatblock_arg = "Pmakeflatblock_arg"
 let pmodbint_arg = "Pmodbint_arg"
 let pmodint_arg = "Pmodint_arg"
 let pmulbint_arg = "Pmulbint_arg"
@@ -259,6 +264,7 @@ let psequand_arg = "Psequand_arg"
 let psequor_arg = "Psequor_arg"
 let psetfield_arg = "Psetfield_arg"
 let psetfield_computed_arg = "Psetfield_computed_arg"
+let psetflatfield_arg = "Psetflatfield_arg"
 let psetfloatfield_arg = "Psetfloatfield_arg"
 let psetglobal_arg = "Psetglobal_arg"
 let pstring_load_16_arg = "Pstring_load_16_arg"
@@ -322,10 +328,13 @@ let of_primitive : Lambda.primitive -> string = function
   | Pgetglobal _ -> pgetglobal
   | Psetglobal _ -> psetglobal
   | Pmakeblock _ -> pmakeblock
+  | Pmakeflatblock _ -> pmakeflatblock
   | Pfield _ -> pfield
   | Pfield_computed -> pfield_computed
   | Psetfield _ -> psetfield
   | Psetfield_computed _ -> psetfield_computed
+  | Pflatfield _ -> pflatfield
+  | Psetflatfield _ -> psetflatfield
   | Pfloatfield _ -> pfloatfield
   | Psetfloatfield _ -> psetfloatfield
   | Pduprecord _ -> pduprecord
@@ -429,10 +438,13 @@ let of_primitive_arg : Lambda.primitive -> string = function
   | Pgetglobal _ -> pgetglobal_arg
   | Psetglobal _ -> psetglobal_arg
   | Pmakeblock _ -> pmakeblock_arg
+  | Pmakeflatblock _ -> pmakeflatblock_arg
   | Pfield _ -> pfield_arg
   | Pfield_computed -> pfield_computed_arg
   | Psetfield _ -> psetfield_arg
   | Psetfield_computed _ -> psetfield_computed_arg
+  | Pflatfield _ -> pflatfield_arg
+  | Psetflatfield _ -> psetflatfield_arg
   | Pfloatfield _ -> pfloatfield_arg
   | Psetfloatfield _ -> psetfloatfield_arg
   | Pduprecord _ -> pduprecord_arg

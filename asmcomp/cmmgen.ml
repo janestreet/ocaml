@@ -464,6 +464,8 @@ let rec transl env e =
           assert false
       | (Pmakeblock(tag, _mut, _kind), args) ->
           make_alloc dbg tag (List.map (transl env) args)
+      | (Pmakeflatblock(_mut, layouts), args) ->
+          make_flat_alloc dbg layouts (List.map (transl env) args)
       | (Pccall prim, args) ->
           transl_ccall env prim args dbg
       | (Pduparray (kind, _), [Uprim (Pmakearray (kind', _), args, _dbg)]) ->
@@ -552,6 +554,7 @@ let rec transl env e =
          | Pbytesrefs | Pbytessets | Pisint | Pisout
          | Pbswap16 | Pint_as_pointer | Popaque | Pfield _
          | Psetfield (_, _, _) | Psetfield_computed (_, _)
+         | Pflatfield _ | Psetflatfield _
          | Pfloatfield _ | Psetfloatfield (_, _) | Pduprecord (_, _)
          | Praise _ | Pdivint _ | Pmodint _ | Pintcomp _ | Poffsetint _
          | Pcompare_ints | Pcompare_floats | Pcompare_bints _
@@ -783,6 +786,8 @@ and transl_prim_1 env p arg dbg =
   (* Heap operations *)
   | Pfield n ->
       get_field env (transl env arg) n dbg
+  | Pflatfield (n, ls) ->
+      get_flat_field (transl env arg) n ls dbg
   | Pfloatfield n ->
       let ptr = transl env arg in
       box_float dbg (floatfield n ptr dbg)
@@ -844,7 +849,8 @@ and transl_prim_1 env p arg dbg =
     | Paddfloat | Psubfloat | Pmulfloat | Pdivfloat
     | Pstringrefu | Pstringrefs | Pbytesrefu | Pbytessetu
     | Pbytesrefs | Pbytessets | Pisout | Pread_symbol _
-    | Pmakeblock (_, _, _) | Psetfield (_, _, _) | Psetfield_computed (_, _)
+    | Pmakeblock _ | Pmakeflatblock _ | Psetfield _ | Psetfield_computed _
+    | Psetflatfield _
     | Psetfloatfield (_, _) | Pduprecord (_, _) | Pccall _ | Pdivint _
     | Pmodint _ | Pintcomp _ | Pfloatcomp _ | Pmakearray (_, _)
     | Pcompare_ints | Pcompare_floats | Pcompare_bints _
@@ -866,6 +872,8 @@ and transl_prim_2 env p arg1 arg2 dbg =
       addr_array_ref (transl env arg1) (transl env arg2) dbg
   | Psetfield(n, ptr, init) ->
       setfield n ptr init (transl env arg1) (transl env arg2) dbg
+  | Psetflatfield(n, ls, _init) ->
+      set_flat_field (transl env arg1) n ls (transl env arg2) dbg
   | Psetfloatfield (n, init) ->
       let ptr = transl env arg1 in
       let float_val = transl_unbox_float dbg env arg2 in
@@ -1025,7 +1033,8 @@ and transl_prim_2 env p arg1 arg2 dbg =
   | Pnot | Pnegint | Pintoffloat | Pfloatofint | Pnegfloat
   | Pabsfloat | Pstringlength | Pbyteslength | Pbytessetu | Pbytessets
   | Pisint | Pbswap16 | Pint_as_pointer | Popaque | Pread_symbol _
-  | Pmakeblock (_, _, _) | Pfield _ | Psetfield_computed (_, _) | Pfloatfield _
+  | Pmakeblock _ | Pmakeflatblock _ | Pfield _ | Psetfield_computed _
+  | Pfloatfield _ | Pflatfield _
   | Pduprecord (_, _) | Pccall _ | Praise _ | Poffsetint _ | Poffsetref _
   | Pmakearray (_, _) | Pduparray (_, _) | Parraylength _ | Parraysetu _
   | Parraysets _ | Pbintofint _ | Pintofbint _ | Pcvtbint (_, _)
@@ -1080,7 +1089,9 @@ and transl_prim_3 env p arg1 arg2 arg3 dbg =
   | Pmulfloat | Pdivfloat | Pstringlength | Pstringrefu | Pstringrefs
   | Pbyteslength | Pbytesrefu | Pbytesrefs | Pisint | Pisout
   | Pbswap16 | Pint_as_pointer | Popaque | Pread_symbol _ | Pmakeblock (_, _, _)
+  | Pmakeflatblock _
   | Pfield _ | Psetfield (_, _, _) | Pfloatfield _ | Psetfloatfield (_, _)
+  | Pflatfield _ | Psetflatfield _
   | Pduprecord (_, _) | Pccall _ | Praise _ | Pdivint _ | Pmodint _ | Pintcomp _
   | Pcompare_ints | Pcompare_floats | Pcompare_bints _
   | Poffsetint _ | Poffsetref _ | Pfloatcomp _ | Pmakearray (_, _)

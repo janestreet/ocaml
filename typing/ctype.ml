@@ -2626,6 +2626,7 @@ let check_layout env ty layout =
 
 (* Compute an upper bound on the layout of a type,
    regardless of how Tvars are later instantiated *)
+(* FIXME_layout expaaaaaaaaand *)
 let rec layout_supremum env ty =
   match (repr ty).desc with
   | Tvar {layout; _} -> layout

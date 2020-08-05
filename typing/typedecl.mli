@@ -101,6 +101,7 @@ type error =
   | Boxed_and_unboxed
   | Nonrec_gadt
   | Layout_mismatch of layout
+  | Bad_flat_record_layout of Ident.t * layout
 
 exception Error of Location.t * error
 

@@ -66,6 +66,7 @@ type error =
   | Boxed_and_unboxed
   | Nonrec_gadt
   | Layout_mismatch of layout
+  | Bad_flat_record_layout of Ident.t * layout
 
 open Typedtree
 
@@ -285,6 +286,20 @@ let make_constructor env type_path type_params spoly sargs sret_type =
       widen z;
       targs, Some tret_type, args, Some ret_type
 
+let layout_of_label env lbl =
+  let l = Ctype.layout_supremum env lbl.Types.ld_type in
+  if Layout.is_compilable l then
+    l
+  else
+    (Ctype.constrain_layout env lbl.Types.ld_type Layout.value; Layout.value)
+
+let check_valid_flat_record loc lbls layouts =
+  List.iter2 (fun lbl l ->
+    (* the only values are immediate *)
+    if not (Layout.is_compilable l &&
+            Layout.(subset l immediate || not (subset l value))) then
+      raise (Error (loc, Bad_flat_record_layout (lbl.Types.ld_id, l)))) lbls layouts
+
 let transl_declaration env sdecl (id, uid) =
   (* Bind type parameters *)
   reset_type_variables();
@@ -390,12 +405,19 @@ let transl_declaration env sdecl (id, uid) =
         let tcstrs, cstrs = List.split (List.map make_cstr scstrs) in
           Ttype_variant tcstrs, Type_variant cstrs
       | Ptype_record lbls ->
+          (* FIXME_layout: lbls vs. lbls' ? What's going on here? *)
           let lbls, lbls' = transl_labels env true lbls in
           let rep =
             if unbox then Record_unboxed false
             else if List.for_all (fun l -> is_float env l.Types.ld_type) lbls'
             then Record_float
-            else Record_regular
+            else
+              let layouts = List.map (layout_of_label env) lbls' in
+              if List.for_all (fun l -> Layout.(subset l value)) layouts then
+                Record_regular
+              else
+                (check_valid_flat_record sdecl.ptype_loc lbls' layouts;
+                 Record_flat layouts)
           in
           Ttype_record lbls, Type_record(lbls', rep)
       | Ptype_open -> Ttype_open, Type_open
@@ -1903,6 +1925,10 @@ let report_error ppf = function
   | Layout_mismatch l ->
       fprintf ppf "@[This type does not have layout %a@]"
         Printtyp.layout l
+  | Bad_flat_record_layout (id, l) ->
+      fprintf ppf "@[The field %s of this flat record has layout %a@ "
+        (Ident.name id) Printtyp.layout l;
+      fprintf ppf "Records cannot contain a mixture of value and flat layouts@]"
 let () =
   Location.register_error_of_exn
     (function

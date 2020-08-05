@@ -57,10 +57,13 @@ type primitive =
   | Psetglobal of Ident.t
   (* Operations on heap blocks *)
   | Pmakeblock of int * mutable_flag * block_shape
+  | Pmakeflatblock of mutable_flag * Types.layout list
   | Pfield of int
   | Pfield_computed
   | Psetfield of int * immediate_or_pointer * initialization_or_assignment
   | Psetfield_computed of immediate_or_pointer * initialization_or_assignment
+  | Pflatfield of int * Types.layout list
+  | Psetflatfield of int * Types.layout list * initialization_or_assignment
   | Pfloatfield of int
   | Psetfloatfield of int * initialization_or_assignment
   | Pduprecord of Types.record_representation * int
@@ -164,6 +167,13 @@ and float_comparison =
 and array_kind =
     Pgenarray | Paddrarray | Pintarray | Pfloatarray
 
+(* FIXME_layout: Eventually, value_kind and Types.layout will be unified.
+
+   At the moment, many layouts are not first-class: e.g. unboxed floats can
+   exist only as record fields, not as Lambda variables in their own right.
+
+   So, for now, value_kind represents the kinds of Lambda variables that are
+   possible, which is currently a strict subset of the possible layouts.  *)
 and value_kind =
     Pgenval | Pfloatval | Pboxedintval of boxed_integer | Pintval
 
@@ -418,6 +428,9 @@ val default_function_attribute : function_attribute
 val default_stub_attribute : function_attribute
 
 val function_is_curried : lfunction -> bool
+
+val flat_field_offset : int -> Types.layout list -> int
+val flat_record_words : Types.layout list -> int
 
 (***********************)
 (* For static failures *)
