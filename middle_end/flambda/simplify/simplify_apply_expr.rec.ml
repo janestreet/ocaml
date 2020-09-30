@@ -151,7 +151,7 @@ let simplify_direct_partial_application dacc apply ~callee's_code_id
     | Return continuation -> continuation
   in
   begin match Apply.inline apply with
-  | Always_inline | Never_inline ->
+  | Always_inline | Never_inline | Hint_inline ->
     Location.prerr_warning (Debuginfo.to_location dbg)
       (Warnings.Inlining_impossible "[@inlined] attributes may not be used \
         on partial applications")

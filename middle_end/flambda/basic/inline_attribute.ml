@@ -21,6 +21,7 @@ type t =
   | Never_inline
   | Unroll of int
   | Default_inline
+  | Hint_inline
 
 let print ppf t =
   let fprintf = Format.fprintf in
@@ -29,6 +30,7 @@ let print ppf t =
   | Never_inline -> fprintf ppf "Never_inline"
   | Unroll n -> fprintf ppf "@[(Unroll %d)@]" n
   | Default_inline -> fprintf ppf "Default_inline"
+  | Hint_inline -> fprintf ppf "Hint_inline"
 
 let equal t1 t2 =
   t1 == t2

@@ -201,6 +201,7 @@ type inline_attribute = Inline_attribute.t =
   | Never_inline
   | Unroll of int
   | Default_inline
+  | Hint_inline
 
 type apply = {
     func : name;

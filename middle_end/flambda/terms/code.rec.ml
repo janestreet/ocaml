@@ -68,9 +68,11 @@ let create
       ~recursive =
   begin match stub, inline with
   | true, (Never_inline | Default_inline)
-  | false, (Never_inline | Default_inline | Always_inline | Unroll _) -> ()
-  | true, (Always_inline | Unroll _) ->
-    Misc.fatal_error "Stubs may not be annotated as [Always_inline] or [Unroll]"
+  | false, (Never_inline | Default_inline | Always_inline | Hint_inline
+      | Unroll _) -> ()
+  | true, (Always_inline | Hint_inline | Unroll _) ->
+    Misc.fatal_error "Stubs may not be annotated as [Always_inline], \
+      [Hint_inline] or [Unroll]"
   end;
   { code_id;
     params_and_body;

@@ -376,6 +376,7 @@ let inline_attribute ?prefix ?suffix () ppf (i : Inline_attribute.t) =
     match i with
     | Always_inline -> Some "inline(always)"
     | Never_inline -> Some "inline(never)"
+    | Hint_inline -> Some "inline(hint)"
     | Unroll i -> Some (Format.sprintf "unroll(%d)" i)
     | Default_inline -> None
   in
