@@ -4984,4 +4984,7 @@ let immediacy env typ =
         Type_immediacy.Always
   | _ -> Type_immediacy.Unknown
 
-let maybe_pointer_type env typ = not (is_immediate (immediacy env typ))
+let maybe_pointer_type env typ =
+  not (is_immediate (immediacy env typ))
+  &&
+  not (check_layout env typ Layout.immediate)
