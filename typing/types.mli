@@ -135,10 +135,12 @@ and prim_layout =
   | PLany
   | PLvalue
   | PLimmediate
-  | PLboxed_float
-  | PLboxed_int of Primitive.boxed_integer
+  | PLimmediate8
+  | PLimmediate0
   | PLfloat
+  | PLbits8
   | PLbits of Primitive.boxed_integer
+  | PLvoid
 
 (** [  `X | `Y ]       (row_closed = true)
     [< `X | `Y ]       (row_closed = true)
@@ -354,7 +356,6 @@ module Layout : sig
   val any : t
   val float : t
   val inter : t -> t -> t option
-  val lub : t -> t -> t
   val subset : t -> t -> bool
   val equal : t -> t -> bool
   val of_string : string -> prim_layout option

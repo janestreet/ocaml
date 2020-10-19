@@ -228,11 +228,11 @@ let common_initial_env add_type add_extension empty_env =
                          [newgenty (Ttuple[type_string; type_int; type_int])] (
   add_extension ident_undefined_recursive_module
                          [newgenty (Ttuple[type_string; type_int; type_int])] (
-  add_type ident_int64 ~layout:[PLboxed_int Pint64] (
+  add_type ident_int64 ~layout:Layout.value (
   add_type ident_int64_unboxed ~layout:[PLbits Pint64]  (
-  add_type ident_int32 ~layout:[PLboxed_int Pint32] (
+  add_type ident_int32 ~layout:Layout.value (
   add_type ident_int32_unboxed ~layout:[PLbits Pint32] (
-  add_type ident_nativeint ~layout:[PLboxed_int Pnativeint] (
+  add_type ident_nativeint ~layout:Layout.value (
   add_type ident_nativeint_unboxed ~layout:[PLbits Pnativeint] (
   add_type1 ident_lazy_t ~variance:Variance.covariant
     ~separability:Separability.Ind (
@@ -248,14 +248,14 @@ let common_initial_env add_type add_extension empty_env =
     ) (
   add_type1 ident_array ~variance:Variance.full ~separability:Separability.Ind (
   add_type ident_exn ~kind:Type_open (
-  add_type ident_unit ~immediate:Always ~layout:Layout.immediate
+  add_type ident_unit ~immediate:Always ~layout:[PLimmediate0]
     ~kind:(Type_variant([cstr ident_void []])) (
-  add_type ident_bool ~immediate:Always ~layout:Layout.immediate
+  add_type ident_bool ~immediate:Always ~layout:[PLimmediate8]
     ~kind:(Type_variant([cstr ident_false []; cstr ident_true []])) (
-  add_type ident_float ~layout:[PLboxed_float] (
+  add_type ident_float ~layout:Layout.value (
   add_type ident_float_unboxed ~layout:[PLfloat] (
   add_type ident_string (
-  add_type ident_char ~immediate:Always ~layout:Layout.immediate (
+  add_type ident_char ~immediate:Always ~layout:[PLimmediate8] (
   add_type ident_int ~immediate:Always ~layout:Layout.immediate (
   add_type ident_extension_constructor (
   add_type ident_floatarray (

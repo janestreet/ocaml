@@ -30,16 +30,38 @@ Line 1, characters 12-21:
 Error: This type does not have layout immediate
 |}]
 
-(* FIXME_layout: this should be allowed *)
 type 'a t : immediate = Foo | Bar
 [%%expect{|
-Line 1, characters 12-21:
-1 | type 'a t : immediate = Foo | Bar
-                ^^^^^^^^^
-Error: This type does not have layout immediate
+type 'a t = Foo | Bar
+|}]
+type 'a t8 : immediate8 = Foo | Bar
+[%%expect{|
+type 'a t8 = Foo | Bar
+|}]
+type 'a t0 : immediate0 = Foo | Bar
+[%%expect{|
+Line 1, characters 13-23:
+1 | type 'a t0 : immediate0 = Foo | Bar
+                 ^^^^^^^^^^
+Error: This type does not have layout immediate0
 |}]
 
-
+type ('a : immediate8) imm8 = 'a
+type ('a : immediate0) imm0 = 'a
+type (_,_) eq = Refl : ('a, 'a) eq
+type ('a : value) is_imm = IsImm : ('b : immediate) . 'b is_imm
+[%%expect{|
+type ('a : immediate8) imm8 = 'a
+type ('a : immediate0) imm0 = 'a
+type (_, _) eq = Refl : ('a, 'a) eq
+type 'a is_imm = IsImm : ('b : immediate). 'b is_imm
+|}]
+type s = (char imm8 * string t8 imm8 * unit imm0 * bool imm8 * int is_imm imm0 * (int,string) eq imm0)
+[%%expect{|
+type s =
+    char imm8 * string t8 imm8 * unit imm0 * bool imm8 * int is_imm imm0 *
+    (int, string) eq imm0
+|}]
 
 (* FIXME_layout: is this the right behaviour?
    Should type parameters be like unification variables (whose layout might refine)

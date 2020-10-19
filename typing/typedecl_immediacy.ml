@@ -53,7 +53,12 @@ let property : (Type_immediacy.t, unit) Typedecl_properties.property =
     let layout = match immediacy with
       | Always ->
          assert (Layout.subset decl.type_layout Layout.value);
-         Layout.immediate
+         begin match Layout.inter decl.type_layout Layout.immediate with
+         | Some l' -> l'
+         | None ->
+            (* Somehow we've gotten contradictory layout and immediacy results *)
+            assert false
+         end
       | _ -> decl.type_layout in
     { decl with type_immediate = immediacy; type_layout = layout } in
   let check _env _id decl () =

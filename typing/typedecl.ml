@@ -430,6 +430,15 @@ let transl_declaration env sdecl (id, uid) =
         Some cty, Some cty.ctyp_type
     in
     let arity = List.length params in
+    (* FIXME_layout: It would be better to compute layouts using Typedecl_properties *)
+    let check_layout infer annot =
+      match annot with
+      | None -> infer
+      | Some lay as l ->
+         let l = transl_layout l in
+         if not (Layout.subset infer l) then
+           raise (Error (lay.play_loc, Layout_mismatch l));
+         l in
     let layout =
       match sdecl.ptype_layout, man, kind with
       | l, None, Type_abstract ->
@@ -441,15 +450,21 @@ let transl_declaration env sdecl (id, uid) =
         if not (Ctype.check_layout env man l) then
           raise(Error(lay.play_loc, Layout_mismatch l));
         l
-      | Some lay as l, _, (Type_open | Type_record _ | Type_variant _) ->
+      | l, _, Type_open ->
+        check_layout Layout.value l
+      | l, _, Type_record _ ->
         (* FIXME_layout: support records of other layouts *)
-        let l = transl_layout l in
-        if not (Layout.subset Layout.value l) then
-          raise(Error(lay.play_loc, Layout_mismatch l));
-        l
-      | None, _, (Type_open | Type_record _ | Type_variant _) ->
-        (* FIXME_layout: support records of other layouts *)
-        Layout.value
+        check_layout Layout.value l
+      | l, _, Type_variant cstrs ->
+        let is_constant : Types.constructor_declaration -> bool =
+          function { cd_args = Cstr_tuple []; _ } -> true | _ -> false in
+        let lay =
+          match List.partition is_constant cstrs with
+          | [_], [] -> [Types.PLimmediate0]
+          | cs, [] when List.length cs < 256 -> [PLimmediate8]
+          | _, [] -> Layout.immediate
+          | _, _ -> Layout.value in
+        check_layout lay l
     in
     let decl =
       { type_params = params;

@@ -46,10 +46,12 @@ and prim_layout =
   | PLany
   | PLvalue
   | PLimmediate
-  | PLboxed_float
-  | PLboxed_int of Primitive.boxed_integer
+  | PLimmediate8
+  | PLimmediate0
   | PLfloat
+  | PLbits8
   | PLbits of Primitive.boxed_integer
+  | PLvoid
 
 and row_desc =
     { row_fields: (label * row_field) list;
@@ -235,22 +237,19 @@ module Layout = struct
     match s, t with
     | PLany, x | x, PLany -> x
 
+    | PLimmediate0, (PLvalue | PLimmediate | PLimmediate8 | PLimmediate0)
+    | (PLvalue | PLimmediate | PLimmediate8), PLimmediate0 -> PLimmediate0
+
+    | PLimmediate8, (PLvalue | PLimmediate | PLimmediate8)
+    | (PLvalue | PLimmediate), PLimmediate8 -> PLimmediate8
+
     | PLimmediate, (PLvalue | PLimmediate)
     | PLvalue, PLimmediate -> PLimmediate
 
-    | PLboxed_float, (PLvalue | PLboxed_float)
-    | PLvalue, PLboxed_float -> PLboxed_float
-
-    | PLboxed_int b, PLvalue
-    | PLvalue, PLboxed_int b -> PLboxed_int b
-    | PLboxed_int b, PLboxed_int b' when b = b' ->
-      PLboxed_int b
-
     | PLvalue, PLvalue -> PLvalue
 
-    | (PLimmediate | PLboxed_float | PLboxed_int _),
-      (PLimmediate | PLboxed_float | PLboxed_int _) ->
-      raise_notrace Exit
+    | PLbits8, PLbits8 -> PLbits8
+    | PLbits8, _ | _, PLbits8 -> raise_notrace Exit
 
     | PLbits s, PLbits t ->
       if s = t then PLbits s else raise_notrace Exit
@@ -260,6 +259,10 @@ module Layout = struct
     | PLfloat, PLfloat -> PLfloat
     | _, PLfloat | PLfloat, _ ->
       raise_notrace Exit
+
+    | PLvoid, PLvoid -> PLvoid
+    | _, PLvoid | PLvoid, _ ->
+      raise_notrace Exit
   let inter s t =
     try Some (List.map2 prim_inter s t) with
     | Invalid_argument _ ->
@@ -268,15 +271,6 @@ module Layout = struct
     | Exit ->
       (* No intersection *)
       None
-  let prim_lub s t =
-    match s, t with
-    | x, y when x = y -> x
-    | (PLvalue | PLimmediate | PLboxed_float | PLboxed_int _),
-      (PLvalue | PLimmediate | PLboxed_float | PLboxed_int _) ->
-      PLvalue
-    | _, _ -> PLany
-  let lub s t =
-    List.map2 prim_lub s t
   let subset s t =
     (inter s t = Some s)
   let equal s t = s = t
@@ -284,27 +278,27 @@ module Layout = struct
     | "any_layout" -> Some PLany
     | "value" -> Some PLvalue
     | "immediate" -> Some PLimmediate
+    | "immediate8" -> Some PLimmediate8
+    | "immediate0" -> Some PLimmediate0
     | "float" -> Some PLfloat
-    | "boxed_float" -> Some PLboxed_float
-    | "boxed_nativeint" -> Some (PLboxed_int Pnativeint)
-    | "boxed_int32" -> Some (PLboxed_int Pint32)
-    | "boxed_int64" -> Some (PLboxed_int Pint64)
+    | "bits8" -> Some PLbits8
     | "bits32" -> Some (PLbits Pint32)
     | "bits64" -> Some (PLbits Pint64)
     | "bitsnat" -> Some (PLbits Pnativeint)
+    | "void" -> Some (PLvoid)
     | _ -> None
   let to_string = function
     | PLany -> "any_layout"
     | PLvalue -> "value"
     | PLimmediate -> "immediate"
+    | PLimmediate8 -> "immediate8"
+    | PLimmediate0 -> "immediate0"
     | PLfloat -> "float"
-    | PLboxed_float -> "boxed_float"
-    | PLboxed_int Pnativeint -> "boxed_nativeint"
-    | PLboxed_int Pint32 -> "boxed_int32"
-    | PLboxed_int Pint64 -> "boxed_int64"
+    | PLbits8 -> "bits8"
     | PLbits Pint32 -> "bits32"
     | PLbits Pint64 -> "bits64"
     | PLbits Pnativeint -> "bitsnat"
+    | PLvoid -> "void"
   let is_compilable x =
     List.for_all (function PLany -> false | _ -> true) x
   let equal_any = function
@@ -313,15 +307,17 @@ module Layout = struct
   let approx_compilable x =
     List.map (function PLany -> PLvalue | l -> l) x
 
-  let word_aligned = Sys.word_size / 8
+  let word_bytes = Sys.word_size / 8
   let prim_size = function
     | PLany -> failwith "size of any_layout is undefined"
-    | PLvalue | PLimmediate | PLboxed_float | PLboxed_int _ ->
-       word_aligned
+    | PLvalue | PLimmediate | PLimmediate8 | PLimmediate0 ->
+       word_bytes
     | PLfloat -> 8
+    | PLbits8 -> 1
     | PLbits Pint32 -> 4
     | PLbits Pint64 -> 8
-    | PLbits Pnativeint -> word_aligned
+    | PLbits Pnativeint -> word_bytes
+    | PLvoid -> 0
   let alignment_bytes l =
     (* Primitives are naturally aligned, so the alignment
        of a layout is the size of its biggest component *)
