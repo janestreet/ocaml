@@ -1344,6 +1344,10 @@ let get_flat_field ptr n (ls : Types.layout list) dbg =
   let addr = Cop(Cadda, [ptr; Cconst_int (offs, dbg)], dbg) in
   (* FIXME_layout would be better not to box here! *)
   match List.nth ls n with
+  | [PLvoid] ->
+     int_const dbg 0
+  | [PLbits8] ->
+     tag_int (Cop(Cload (Byte_unsigned, Mutable), [addr], dbg)) dbg
   | [PLbits Pint32] ->
      box_int_gen dbg Pint32
        (sign_extend_32 dbg
@@ -1371,6 +1375,11 @@ let set_flat_field ptr n (ls : Types.layout list) newval dbg =
   let addr = Cop(Cadda, [ptr; Cconst_int(offs, dbg)], dbg) in
   (* FIXME_layout better not to box! *)
   match List.nth ls n with
+  | [PLvoid] ->
+     Ctuple [] (* nop *)
+  | [PLbits8] ->
+     let value = untag_int newval dbg in
+     Cop(Cstore(Byte_unsigned, init), [addr; value], dbg)
   | [PLbits Pint32] ->
      let value = low_32 dbg (unbox_int dbg Pint32 newval) in
      Cop(Cstore(Thirtytwo_signed, init), [addr; value], dbg)

@@ -921,7 +921,9 @@ let flat_record_words (ls : Types.layout list) =
   (* FIXME_layout: Sys.word_size cross-compilation issues? *)
   let word = Sys.word_size / 8 in
   assert (bytes mod word = 0);
-  bytes / word
+  (* ensure at least one word allocated.
+     FIXME_layout: use a better encoding for truly empty records *)
+  max (bytes / word) 1
 
 let reset () =
   raise_count := 0
