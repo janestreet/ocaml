@@ -1461,6 +1461,7 @@ and type_param f (p : type_parameter) : unit =
 
 and type_params f : type_parameter list -> unit = function
   | [] -> ()
+  | [{ptp_layout=Some _; _} as p] -> pp f "(%a) " type_param p
   | l -> pp f "%a " (list type_param ~first:"(" ~last:")" ~sep:",@;") l
 
 and type_def_list ctxt f (rf, exported, l) =
