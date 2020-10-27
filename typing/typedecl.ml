@@ -461,7 +461,7 @@ let transl_declaration env sdecl (id, uid) =
           function { cd_args = Cstr_tuple []; _ } -> true | _ -> false in
         let lay =
           match List.partition is_constant cstrs with
-          | [_], [] -> [Types.PLimmediate0]
+          | ([] | [_]), [] -> [Types.PLimmediate0]
           | cs, [] when List.length cs < 256 -> [PLimmediate8]
           | _, [] -> Layout.immediate
           | _, _ -> Layout.value in
