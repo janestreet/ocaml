@@ -19,6 +19,7 @@ open Types
 
 val type_int: type_expr
 val type_char: type_expr
+val type_char_unboxed: type_expr
 val type_string: type_expr
 val type_bytes: type_expr
 val type_float: type_expr

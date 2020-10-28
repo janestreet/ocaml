@@ -30,6 +30,7 @@ let ident_create = wrap Ident.create_predef
 
 let ident_int = ident_create "int"
 and ident_char = ident_create "char"
+and ident_char_unboxed = ident_create "#char"
 and ident_bytes = ident_create "bytes"
 and ident_float = ident_create "float"
 and ident_float_unboxed = ident_create "#float"
@@ -52,6 +53,7 @@ and ident_floatarray = ident_create "floatarray"
 
 let path_int = Pident ident_int
 and path_char = Pident ident_char
+and path_char_unboxed = Pident ident_char_unboxed
 and path_bytes = Pident ident_bytes
 and path_float = Pident ident_float
 and path_float_unboxed = Pident ident_float_unboxed
@@ -74,6 +76,7 @@ and path_floatarray = Pident ident_floatarray
 
 let type_int = newgenty (Tconstr(path_int, [], ref Mnil))
 and type_char = newgenty (Tconstr(path_char, [], ref Mnil))
+and type_char_unboxed = newgenty (Tconstr(path_char_unboxed, [], ref Mnil))
 and type_bytes = newgenty (Tconstr(path_bytes, [], ref Mnil))
 and type_float = newgenty (Tconstr(path_float, [], ref Mnil))
 and type_float_unboxed = newgenty (Tconstr(path_float_unboxed, [], ref Mnil))
@@ -256,10 +259,11 @@ let common_initial_env add_type add_extension empty_env =
   add_type ident_float_unboxed ~layout:[PLfloat] (
   add_type ident_string (
   add_type ident_char ~immediate:Always ~layout:[PLimmediate8] (
+  add_type ident_char_unboxed ~layout:[PLbits8] (
   add_type ident_int ~immediate:Always ~layout:Layout.immediate (
   add_type ident_extension_constructor (
   add_type ident_floatarray (
-    empty_env))))))))))))))))))))))))))))))))
+    empty_env)))))))))))))))))))))))))))))))))
 
 let build_initial_env add_type add_exception empty_env =
   let common = common_initial_env add_type add_exception empty_env in

@@ -78,7 +78,10 @@ let () =
   assert (y = 42.42);
   Printf.printf "%d %.2f\n" (Obj.reachable_words (Obj.repr x)) (f x)
 
-type c4 = { a : char pack8; b : char pack8; c : char pack8; d : char pack8 }
+type c4 = { a : char pack8; b : char pack8; c : char pack8; d : #char }
+
+external tag8 : #char -> char = "%identity"
+external untag8 : char -> #char = "%identity"
 
 let () =
   for i = 0 to 255 do
@@ -86,8 +89,8 @@ let () =
     let b = Char.chr ((i * 7) land 0xff) in
     let c = Char.chr (i lxor 139) in
     let d = Char.chr ((i * 93) land 0xff) in
-    let x = { a = pack8 a; b = pack8 b; c = pack8 c; d = pack8 d } in
+    let x = { a = pack8 a; b = pack8 b; c = pack8 c; d = untag8 d } in
     assert (Obj.reachable_words (Obj.repr x) = 2);
-    assert ((a,b,c,d) = (unpack8 x.a, unpack8 x.b, unpack8 x.c, unpack8 x.d));
+    assert ((a,b,c,d) = (unpack8 x.a, unpack8 x.b, unpack8 x.c, tag8 x.d));
   done
 
