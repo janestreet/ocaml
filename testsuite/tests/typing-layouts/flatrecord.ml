@@ -1,6 +1,4 @@
-(* TEST
-   * native
-*)
+(* TEST *)
 
 (* FIXME_layout the output of this test assumes 64-bit words. *)
 
@@ -47,12 +45,26 @@ type ('a : immediate0) pack0 : void
 external pack0 : 'a -> 'a pack0 = "%identity"
 external unpack0 : 'a pack0 -> 'a = "%identity"
 
+
+type ('a : immediate8) pack8 : bits8
+external pack8 : 'a -> 'a pack8 = "%identity"
+external unpack8 : 'a pack8 -> 'a = "%identity"
+
+
 type zr = { zr : unit pack0 }
 let zr = { zr = pack0 () }
 
 type (_,_) eq = Refl : ('a, 'a) eq
 
 type ('a,'b) eqf = { equ : ('a, 'b) eq pack0; junk : unit pack0; fl : #float }
+
+type empty = |
+type empty_rec = { bad : empty pack8 }
+let () =
+  match Sys.opaque_identity { bad = pack8 (raise Not_found) } with
+  | exception Not_found -> ()
+  | _ -> assert false
+
 
 let f (type a) (x : (a, float) eqf) : float =
   match unpack0 x.equ with
@@ -62,11 +74,9 @@ let mkeqf x = { equ = pack0 Refl; junk = pack0 (); fl = unboxfloat x }
 
 let () =
   let x = mkeqf 42.42 in
+  let y = boxfloat x.fl in
+  assert (y = 42.42);
   Printf.printf "%d %.2f\n" (Obj.reachable_words (Obj.repr x)) (f x)
-
-type ('a : immediate8) pack8 : bits8
-external pack8 : 'a -> 'a pack8 = "%identity"
-external unpack8 : 'a pack8 -> 'a = "%identity"
 
 type c4 = { a : char pack8; b : char pack8; c : char pack8; d : char pack8 }
 

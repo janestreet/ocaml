@@ -78,13 +78,16 @@ CAMLprim value caml_create_bytes(value len)
   return caml_alloc_string(size);
 }
 
-
+CAMLprim value caml_unsafe_get8(value str, value index)
+{
+  return Val_int(Byte_u(str, Long_val(index)));
+}
 
 CAMLprim value caml_string_get(value str, value index)
 {
   intnat idx = Long_val(index);
   if (idx < 0 || idx >= caml_string_length(str)) caml_array_bound_error();
-  return Val_int(Byte_u(str, idx));
+  return caml_unsafe_get8(str, index);
 }
 
 CAMLprim value caml_bytes_get(value str, value index)
@@ -92,12 +95,17 @@ CAMLprim value caml_bytes_get(value str, value index)
   return caml_string_get(str, index);
 }
 
+CAMLprim value caml_unsafe_set8(value str, value index, value newval)
+{
+  Byte_u(str, Long_val(index)) = Int_val(newval);
+  return Val_unit;
+}
+
 CAMLprim value caml_bytes_set(value str, value index, value newval)
 {
   intnat idx = Long_val(index);
   if (idx < 0 || idx >= caml_string_length(str)) caml_array_bound_error();
-  Byte_u(str, idx) = Int_val(newval);
-  return Val_unit;
+  return caml_unsafe_set8(str, index, newval);
 }
 
 /**
@@ -109,13 +117,11 @@ CAMLprim value caml_string_set(value str, value index, value newval)
   return caml_bytes_set(str,index,newval);
 }
 
-
-CAMLprim value caml_string_get16(value str, value index)
+CAMLprim value caml_unsafe_get16(value str, value index)
 {
   intnat res;
   unsigned char b1, b2;
   intnat idx = Long_val(index);
-  if (idx < 0 || idx + 1 >= caml_string_length(str)) caml_array_bound_error();
   b1 = Byte_u(str, idx);
   b2 = Byte_u(str, idx + 1);
 #ifdef ARCH_BIG_ENDIAN
@@ -126,17 +132,23 @@ CAMLprim value caml_string_get16(value str, value index)
   return Val_int(res);
 }
 
+CAMLprim value caml_string_get16(value str, value index)
+{
+  intnat idx = Long_val(index);
+  if (idx < 0 || idx + 1 >= caml_string_length(str)) caml_array_bound_error();
+  return caml_unsafe_get16(str, index);
+}
+
 CAMLprim value caml_bytes_get16(value str, value index)
 {
   return caml_string_get16(str,index);
 }
 
-CAMLprim value caml_string_get32(value str, value index)
+CAMLprim value caml_unsafe_get32(value str, value index)
 {
   int32_t res;
   unsigned char b1, b2, b3, b4;
   intnat idx = Long_val(index);
-  if (idx < 0 || idx + 3 >= caml_string_length(str)) caml_array_bound_error();
   b1 = Byte_u(str, idx);
   b2 = Byte_u(str, idx + 1);
   b3 = Byte_u(str, idx + 2);
@@ -149,17 +161,23 @@ CAMLprim value caml_string_get32(value str, value index)
   return caml_copy_int32(res);
 }
 
+CAMLprim value caml_string_get32(value str, value index)
+{
+  intnat idx = Long_val(index);
+  if (idx < 0 || idx + 3 >= caml_string_length(str)) caml_array_bound_error();
+  return caml_unsafe_get32(str, index);
+}
+
 CAMLprim value caml_bytes_get32(value str, value index)
 {
   return caml_string_get32(str,index);
 }
 
-CAMLprim value caml_string_get64(value str, value index)
+CAMLprim value caml_unsafe_get64(value str, value index)
 {
   uint64_t res;
   unsigned char b1, b2, b3, b4, b5, b6, b7, b8;
   intnat idx = Long_val(index);
-  if (idx < 0 || idx + 7 >= caml_string_length(str)) caml_array_bound_error();
   b1 = Byte_u(str, idx);
   b2 = Byte_u(str, idx + 1);
   b3 = Byte_u(str, idx + 2);
@@ -182,17 +200,23 @@ CAMLprim value caml_string_get64(value str, value index)
   return caml_copy_int64(res);
 }
 
+CAMLprim value caml_string_get64(value str, value index)
+{
+  intnat idx = Long_val(index);
+  if (idx < 0 || idx + 7 >= caml_string_length(str)) caml_array_bound_error();
+  return caml_unsafe_get64(str, index);
+}
+
 CAMLprim value caml_bytes_get64(value str, value index)
 {
   return caml_string_get64(str,index);
 }
 
-CAMLprim value caml_bytes_set16(value str, value index, value newval)
+CAMLprim value caml_unsafe_set16(value str, value index, value newval)
 {
   unsigned char b1, b2;
   intnat val;
   intnat idx = Long_val(index);
-  if (idx < 0 || idx + 1 >= caml_string_length(str)) caml_array_bound_error();
   val = Long_val(newval);
 #ifdef ARCH_BIG_ENDIAN
   b1 = 0xFF & val >> 8;
@@ -206,12 +230,18 @@ CAMLprim value caml_bytes_set16(value str, value index, value newval)
   return Val_unit;
 }
 
-CAMLprim value caml_bytes_set32(value str, value index, value newval)
+CAMLprim value caml_bytes_set16(value str, value index, value newval)
+{
+  intnat idx = Long_val(index);
+  if (idx < 0 || idx + 1 >= caml_string_length(str)) caml_array_bound_error();
+  return caml_unsafe_set16(str, index, newval);
+}
+
+CAMLprim value caml_unsafe_set32(value str, value index, value newval)
 {
   unsigned char b1, b2, b3, b4;
   intnat val;
   intnat idx = Long_val(index);
-  if (idx < 0 || idx + 3 >= caml_string_length(str)) caml_array_bound_error();
   val = Int32_val(newval);
 #ifdef ARCH_BIG_ENDIAN
   b1 = 0xFF & val >> 24;
@@ -231,12 +261,18 @@ CAMLprim value caml_bytes_set32(value str, value index, value newval)
   return Val_unit;
 }
 
-CAMLprim value caml_bytes_set64(value str, value index, value newval)
+CAMLprim value caml_bytes_set32(value str, value index, value newval)
+{
+  intnat idx = Long_val(index);
+  if (idx < 0 || idx + 3 >= caml_string_length(str)) caml_array_bound_error();
+  return caml_unsafe_set32(str, index, newval);
+}
+
+CAMLprim value caml_unsafe_set64(value str, value index, value newval)
 {
   unsigned char b1, b2, b3, b4, b5, b6, b7, b8;
   int64_t val;
   intnat idx = Long_val(index);
-  if (idx < 0 || idx + 7 >= caml_string_length(str)) caml_array_bound_error();
   val = Int64_val(newval);
 #ifdef ARCH_BIG_ENDIAN
   b1 = 0xFF & val >> 56;
@@ -266,6 +302,13 @@ CAMLprim value caml_bytes_set64(value str, value index, value newval)
   Byte_u(str, idx + 6) = b7;
   Byte_u(str, idx + 7) = b8;
   return Val_unit;
+}
+
+CAMLprim value caml_bytes_set64(value str, value index, value newval)
+{
+  intnat idx = Long_val(index);
+  if (idx < 0 || idx + 7 >= caml_string_length(str)) caml_array_bound_error();
+  return caml_unsafe_set64(str, index, newval);
 }
 
 CAMLprim value caml_string_equal(value s1, value s2)

@@ -784,10 +784,13 @@ let rec comp_expr env exp sz cont =
   | Lprim(Pmakeblock(tag, _mut, _), args, loc) ->
       let cont = add_pseudo_event loc !compunit_name cont in
       comp_args env args sz (Kmakeblock(List.length args, tag) :: cont)
-  | Lprim(Pflatfield (_n, _ls), [_arg], _loc) ->
-      Misc.fatal_error "Bytegen.comp_expr: Pflatfield unimplemented"
-  | Lprim(Psetflatfield (_n, _ls, _init), [_obj; _val], _loc) ->
-      Misc.fatal_error "Bytegen.comp_expr: Psetflatfield unimplemented"
+  | Lprim(Pmakeflatblock(_mut, ls), args, loc) ->
+      let cont = add_pseudo_event loc !compunit_name cont in
+      comp_make_flat_block env args sz ls cont
+  | Lprim(Pflatfield (n, ls), [arg], _loc) ->
+      comp_get_flat_field env arg sz n ls cont
+  | Lprim(Psetflatfield (n, ls, _init), [obj; newval], _loc) ->
+      comp_set_flat_field env obj newval sz n ls cont
   | Lprim(Pfloatfield n, args, loc) ->
       let cont = add_pseudo_event loc !compunit_name cont in
       comp_args env args sz (Kgetfloatfield n :: cont)
@@ -1042,6 +1045,110 @@ and comp_binary_test env cond ifso ifnot sz cont =
             comp_expr env ifso sz (branch_end :: cont2) in
 
   comp_expr env cond sz cont_cond
+
+and comp_get_flat_field env expr sz n ls cont =
+  let offs = Lambda.flat_field_offset n ls in
+  (* FIXME_layout review boxing? *)
+  match List.nth ls n with
+  | [PLvoid] ->
+    comp_expr env expr sz (Kconst (Const_base (Const_int 0)) :: cont)
+  | [PLbits8] ->
+    Kconst (Const_base (Const_int offs)) ::
+    Kpush ::
+    comp_expr env expr (sz + 1) (
+    Kccall("caml_unsafe_get8", 2) ::
+    cont)
+  | [PLbits Pint32] ->
+    Kconst (Const_base (Const_int offs)) ::
+    Kpush ::
+    comp_expr env expr (sz + 1) (
+    Kccall("caml_unsafe_get32", 2) ::
+    cont)
+  | [PLbits Pint64] ->
+    Kconst (Const_base (Const_int offs)) ::
+    Kpush ::
+    comp_expr env expr (sz + 1) (
+    Kccall("caml_unsafe_get64", 2) ::
+    cont)
+  | [PLfloat] ->
+    Kconst (Const_base (Const_int offs)) ::
+    Kpush ::
+    comp_expr env expr (sz + 1) (
+    Kccall("caml_unsafe_get64", 2) ::
+    Kccall("caml_int64_float_of_bits", 1) ::
+    cont)
+  | p when Types.Layout.subset p Types.Layout.immediate ->
+    comp_expr env expr sz (
+    Kgetfield (offs / (Sys.word_size / 8)) ::
+    cont)
+  | _ -> fatal_error "Bytegen.get_flat_field: unimplemented layout"
+
+and comp_set_flat_field env expr newval sz n ls cont =
+  let offs = Lambda.flat_field_offset n ls in
+  match List.nth ls n with
+  | [PLvoid] ->
+    comp_expr env newval sz (
+    comp_expr env expr sz cont)
+  | [PLbits8] ->
+    comp_expr env newval sz (
+    Kpush ::
+    Kconst (Const_base (Const_int offs)) ::
+    Kpush ::
+    comp_expr env expr (sz + 2) (
+    Kccall("caml_unsafe_set8", 3) ::
+    cont))
+  | [PLbits Pint32] ->
+    comp_expr env newval sz (
+    Kpush ::
+    Kconst (Const_base (Const_int offs)) ::
+    Kpush ::
+    comp_expr env expr (sz + 2) (
+    Kccall("caml_unsafe_set32", 3) ::
+    cont))
+  | [PLbits Pint64] ->
+    comp_expr env newval sz (
+    Kpush ::
+    Kconst (Const_base (Const_int offs)) ::
+    Kpush ::
+    comp_expr env expr (sz + 2) (
+    Kccall("caml_unsafe_set64", 3) ::
+    cont))
+  | [PLfloat] ->
+    comp_expr env newval sz (
+    Kccall("caml_int64_bits_of_float", 1) ::
+    Kpush ::
+    Kconst (Const_base (Const_int offs)) ::
+    Kpush ::
+    comp_expr env expr (sz + 2) (
+    Kccall("caml_unsafe_set64", 3) ::
+    cont))
+  | p when Types.Layout.subset p Types.Layout.immediate ->
+    comp_expr env newval sz (
+    Kpush ::
+    comp_expr env expr (sz + 1) (
+    Ksetfield (offs / (Sys.word_size / 8)) ::
+    cont))
+  | _ -> fatal_error "Bytegen.set_flat_field: unimplemented layout"
+
+and comp_make_flat_block env args sz ls cont =
+  let length = Lambda.flat_record_words ls in
+  let fields = List.mapi (fun i e -> i, e) args in
+  let rec make_zeros = function
+    | 0 -> assert false  (* no empty allocations *)
+    | 1 -> [Kconst (Const_base (Const_int 0))]
+    | n -> Kconst (Const_base (Const_int 0)) :: Kpush :: make_zeros (n-1) in
+  let id = Ident.create_local "flatblock" in
+  make_zeros length @
+  Kmakeblock (length, Obj.abstract_tag) ::
+  Kpush ::
+    let sz = sz + 1 in
+    let env = add_var id sz env in
+    List.fold_right (fun (i, exp) cont ->
+      comp_set_flat_field env (Lvar id) exp sz i ls cont) fields
+    (Kacc 0 :: add_pop 1 cont)
+
+
+
 
 (**** Compilation of a code block (with tracking of stack usage) ****)
 
