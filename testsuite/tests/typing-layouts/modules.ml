@@ -274,3 +274,86 @@ Error: In this `with' constraint, the new definition of t
          type t : immediate
        Their layouts are incompatible.
 |}]
+
+
+(* Schemes and any_layout *)
+
+module R = struct let f x = raise Not_found end
+[%%expect{|
+module R : sig val f : ('b : any_layout). 'a -> 'b end
+|}]
+
+(* Unannotated type variables quantify over value *)
+module type I1 = sig val id : 'a -> 'a end
+module type I2 = sig val id : ('a : value) . 'a -> 'a end
+module type I3 = sig val id : ('a : any_layout) . 'a -> 'a end
+module I_12 (X : I1) : I2 = X
+module I_21 (X : I2) : I1 = X
+module I_32 (X : I3) : I2 = X
+module I_31 (X : I3) : I1 = X
+[%%expect{|
+module type I1 = sig val id : 'a -> 'a end
+module type I2 = sig val id : 'a -> 'a end
+module type I3 = sig val id : ('a : any_layout). 'a -> 'a end
+module I_12 : functor (X : I1) -> I2
+module I_21 : functor (X : I2) -> I1
+module I_32 : functor (X : I3) -> I2
+module I_31 : functor (X : I3) -> I1
+|}]
+module I_23 (X : I2) : I3 = X
+[%%expect{|
+Line 1, characters 28-29:
+1 | module I_23 (X : I2) : I3 = X
+                                ^
+Error: Signature mismatch:
+       Modules do not match: sig val id : 'a -> 'a end is not included in I3
+       Values do not match:
+         val id : 'a -> 'a
+       is not included in
+         val id : ('a : any_layout). 'a -> 'a
+|}]
+module I_13 (X : I1) : I3 = X
+[%%expect{|
+Line 1, characters 28-29:
+1 | module I_13 (X : I1) : I3 = X
+                                ^
+Error: Signature mismatch:
+       Modules do not match: sig val id : 'a -> 'a end is not included in I3
+       Values do not match:
+         val id : 'a -> 'a
+       is not included in
+         val id : ('a : any_layout). 'a -> 'a
+|}]
+
+let rec loop () = loop ()
+let rec failrec s = failwith s
+let fail s = failwith s
+let pipefail s = s |> failwith
+let appfail s = failwith @@ s
+type t = { exn : exn; backtrace : Printexc.raw_backtrace }
+module Exn = struct
+let raise_with_bt = Printexc.raise_with_backtrace
+end
+let reraise {exn; backtrace} = Exn.raise_with_bt exn backtrace
+(* FIXME_layout: one day I may bother to update Format with layouts *)
+let raise_errorf ?(loc = []) ?(sub = []) =
+  Format.kdprintf (fun txt -> txt Format.std_formatter; failwith "bang")
+let invalid_attr attr desc = raise_errorf "%s %s" attr desc
+[%%expect{|
+val loop : ('a : any_layout). unit -> 'a = <fun>
+val failrec : ('a : any_layout). string -> 'a = <fun>
+val fail : ('a : any_layout). string -> 'a = <fun>
+val pipefail : ('a : any_layout). string -> 'a = <fun>
+val appfail : ('a : any_layout). string -> 'a = <fun>
+type t = { exn : exn; backtrace : Printexc.raw_backtrace; }
+module Exn :
+  sig
+    val raise_with_bt :
+      ('a : any_layout). exn -> Printexc.raw_backtrace -> 'a
+  end
+val reraise : ('a : any_layout). t -> 'a = <fun>
+val raise_errorf :
+  ?loc:'a list ->
+  ?sub:'b list -> ('c, Format.formatter, unit, 'd) format4 -> 'c = <fun>
+val invalid_attr : string -> string -> 'a = <fun>
+|}]

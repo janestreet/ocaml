@@ -27,18 +27,18 @@
 
 (** {1 Exceptions} *)
 
-external raise : exn -> 'a = "%reraise"
+external raise : ('a : any_layout) . exn -> 'a = "%reraise"
 (** Raise the given exception value *)
 
-external raise_notrace : exn -> 'a = "%raise_notrace"
+external raise_notrace : ('a : any_layout) . exn -> 'a = "%raise_notrace"
 (** A faster version [raise] which does not record the backtrace.
     @since 4.02.0
 *)
 
-val invalid_arg : string -> 'a
+val invalid_arg : ('a : any_layout) . string -> 'a
 (** Raise exception [Invalid_argument] with the given string. *)
 
-val failwith : string -> 'a
+val failwith : ('a : any_layout) . string -> 'a
 (** Raise exception [Failure] with the given string. *)
 
 exception Exit
@@ -300,14 +300,16 @@ external __POS_OF__ : 'a -> (string * int * int * int) * 'a = "%loc_POS"
 
 (** {1 Composition operators} *)
 
-external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply"
+external ( |> ) : ('a : any_layout) ('b : any_layout) .
+  'a -> ('a -> 'b) -> 'b = "%revapply"
 (** Reverse-application operator: [x |> f |> g] is exactly equivalent
  to [g (f (x))].
  Left-associative operator, see {!Ocaml_operators} for more information.
  @since 4.01
 *)
 
-external ( @@ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
+external ( @@ ) : ('a : any_layout) ('b : any_layout) .
+  ('a -> 'b) -> 'a -> 'b = "%apply"
 (** Application operator: [g @@ f @@ x] is exactly equivalent to
  [g (f (x))].
  Right-associative operator, see {!Ocaml_operators} for more information.

@@ -735,7 +735,6 @@ let transl_type_scheme env styp =
   let vars, bindings = transl_type_var_bindings vars in
   let typ = transl_simple_type env ~bindings false styp in
   end_def();
-  tighten_contravariant_layouts env typ.ctyp_type;
   generalize typ.ctyp_type;
   match vars with
   | [] -> typ

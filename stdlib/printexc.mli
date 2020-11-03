@@ -147,7 +147,7 @@ val raw_backtrace_to_string: raw_backtrace -> string
     @since 4.01.0
 *)
 
-external raise_with_backtrace: exn -> raw_backtrace -> 'a
+external raise_with_backtrace: ('a : any_layout) . exn -> raw_backtrace -> 'a
   = "%raise_with_backtrace"
 (** Reraise the exception using the given raw_backtrace for the
     origin of the exception

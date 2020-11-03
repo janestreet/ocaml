@@ -2265,7 +2265,7 @@ let rec type_approx env sexp =
         raise(Error(sexp.pexp_loc, env, Expr_type_clash (trace, None, None)))
       end;
       ty2
-  | _ -> newvar ()
+  | _ -> newvar ~layout:Layout.any ()
 
 (* List labels in a function type, and whether return type is a variable *)
 let rec list_labels_aux env visited ls ty_fun =
@@ -4812,7 +4812,7 @@ and type_cases
   if may_contain_gadts then begin
     end_def ();
     (* Ensure that existential types do not escape *)
-    unify_exp_types loc env (instance ty_res) (newvar ()) ;
+    unify_exp_types loc env (instance ty_res) (newvar ~layout:Layout.any ()) ;
   end;
   cases, partial
 

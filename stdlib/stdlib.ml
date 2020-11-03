@@ -23,8 +23,8 @@ let () =
   register_named_value "Pervasives.array_bound_error"
     (Invalid_argument "index out of bounds")
 
-external raise : exn -> 'a = "%reraise"
-external raise_notrace : exn -> 'a = "%raise_notrace"
+external raise : ('a : any_layout) . exn -> 'a = "%reraise"
+external raise_notrace : ('a : any_layout) . exn -> 'a = "%raise_notrace"
 
 let failwith s = raise(Failure s)
 let invalid_arg s = raise(Invalid_argument s)
@@ -45,8 +45,10 @@ exception Undefined_recursive_module = Undefined_recursive_module
 
 (* Composition operators *)
 
-external ( |> ) : 'a -> ('a -> 'b) -> 'b = "%revapply"
-external ( @@ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
+external ( |> ) : ('a : any_layout) ('b : any_layout) .
+  'a -> ('a -> 'b) -> 'b = "%revapply"
+external ( @@ ) : ('a : any_layout) ('b : any_layout) .
+  ('a -> 'b) -> 'a -> 'b = "%apply"
 
 (* Debugging *)
 
