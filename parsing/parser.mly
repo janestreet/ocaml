@@ -355,11 +355,46 @@ let exp_of_label ~loc lbl =
 let pat_of_label ~loc lbl =
   mkpat ~loc (Ppat_var (loc_last lbl))
 
+let attrs_of_layout_named largs lret =
+  if lret = None && List.for_all (fun (_,x) -> x = None) largs then []
+  else begin
+    let mk_constr {loc;txt} =
+      Typ.constr ~loc (mkloc (Lident txt) loc) [] in
+    let mk_label = function
+      | None -> Nolabel
+      | Some s -> Labelled s in
+    let mk_layout = function
+      | None -> Typ.any (*~loc*) ()
+      | Some l ->
+        let l = match l.play_desc with
+          | [] -> assert false
+          | [l] -> mk_constr l
+          | ls -> Typ.tuple (*~loc*) (List.map mk_constr ls) in
+        l in
+    let attr = List.fold_right (fun (n, l) t ->
+                 let lbl = mk_label n in
+                 let ty = mk_layout l in
+                 Typ.arrow (*~loc*) lbl ty t) largs (mk_layout lret) in
+    [Attr.mk (*~loc*) {txt="ocaml.layout";loc=Location.none} (PTyp attr)]
+  end
+
+let attrs_of_layout largs lret =
+  attrs_of_layout_named (List.map (fun x -> None, x) largs) lret
+
 let mk_newtypes ~loc newtypes exp =
-  let mkexp = mkexp ~loc in
   List.fold_right (fun (newtype, layout) exp ->
-    mkexp (Pexp_newtype ((newtype, layout), exp)))
+    let loc = make_loc loc in
+    let attrs = attrs_of_layout [] layout in
+    Exp.mk ~loc ~attrs (Pexp_newtype ((newtype, None), exp)))
     newtypes exp
+
+let mk_poly_desc newtypes body =
+  let layouts = List.map snd newtypes in
+  (* FIXME *)
+  let newtypes = List.map (fun (s,_) -> (s, None)) newtypes in
+  let attrs = attrs_of_layout layouts None in
+  let body = { body with ptyp_attributes = attrs @ body.ptyp_attributes } in
+  Ptyp_poly (newtypes, body)
 
 let wrap_type_annotation ~loc newtypes core_type body =
   let mkexp, ghtyp = mkexp ~loc, ghtyp ~loc in
@@ -367,7 +402,7 @@ let wrap_type_annotation ~loc newtypes core_type body =
   let exp = mkexp(Pexp_constraint(body,core_type)) in
   let exp = mk_newtypes newtypes exp in
   let names = List.map (fun (s, _) -> s.txt) newtypes in
-  (exp, ghtyp(Ptyp_poly(newtypes, Typ.varify_constructors names core_type)))
+  (exp, ghtyp(mk_poly_desc newtypes (Typ.varify_constructors names core_type)))
 
 let wrap_exp_attrs ~loc body (ext, attrs) =
   let ghexp = ghexp ~loc in
@@ -1752,7 +1787,7 @@ class_fun_binding:
 
 formal_class_parameters:
   params = class_parameters(type_parameter)
-    { params }
+    { List.map fst params }
 ;
 
 (* -------------------------------------------------------------------------- *)
@@ -2438,7 +2473,7 @@ let_binding_body:
           | _ -> assert false
         in
         let loc = Location.(t.ptyp_loc.loc_start, t.ptyp_loc.loc_end) in
-        let typ = ghtyp ~loc (Ptyp_poly([],t)) in
+        let typ = ghtyp ~loc (mk_poly_desc [] t) in
         let patloc = ($startpos($1), $endpos($2)) in
         (ghpat ~loc:patloc (Ppat_constraint(v, typ)),
          mkexp_constraint ~loc:$sloc $4 $2) }
@@ -2449,7 +2484,7 @@ let_binding_body:
       { let typloc = ($startpos($3), $endpos($5)) in
         let patloc = ($startpos($1), $endpos($5)) in
         (ghpat ~loc:patloc
-           (Ppat_constraint($1, ghtyp ~loc:typloc (Ptyp_poly($3,$5)))),
+           (Ppat_constraint($1, ghtyp ~loc:typloc (mk_poly_desc $3 $5))),
          $7) }
   | let_ident COLON newtype_list DOT core_type EQUAL seq_expr
       { let exp, poly =
@@ -2868,12 +2903,13 @@ generic_type_declaration(flag, kind):
   cstrs = constraints
   attrs2 = post_item_attributes
     {
+      let params, playouts = params in
       let (kind, priv, manifest) = kind_priv_manifest in
       let docs = symbol_docs $sloc in
-      let attrs = attrs1 @ attrs2 in
+      let attrs = attrs1 @ attrs2 @ attrs_of_layout playouts layout in
       let loc = make_loc $sloc in
       (flag, ext),
-      Type.mk id ~params ~cstrs ~kind ~priv ?manifest ?layout
+      Type.mk id ~params ~cstrs ~kind ~priv ?manifest
         ~attrs ~loc ~docs
     }
 ;
@@ -2887,9 +2923,10 @@ generic_type_declaration(flag, kind):
   cstrs = constraints
   attrs2 = post_item_attributes
     {
+      let params, playouts = params in
       let (kind, priv, manifest) = kind_priv_manifest in
       let docs = symbol_docs $sloc in
-      let attrs = attrs1 @ attrs2 in
+      let attrs = attrs1 @ attrs2 @ attrs_of_layout playouts layout in
       let loc = make_loc $sloc in
       let text = symbol_text $symbolstartpos in
       Type.mk id ~params ~cstrs ~kind ~priv ?manifest ?layout
@@ -2948,17 +2985,17 @@ layout:
 ;
 type_parameters:
     /* empty */
-      { [] }
+      { [], [] }
   | v = type_variance p = type_variable
-      { [{ ptp_name = p; ptp_variance = v; ptp_layout = None}] }
+      { [{ ptp_name = p; ptp_variance = v; ptp_layout = None}], [None] }
   | LPAREN ps = separated_nonempty_llist(COMMA, type_parameter) RPAREN
-      { ps }
+      { List.map fst ps, List.map snd ps }
 ;
 type_parameter:
     type_variance type_variable
-      { { ptp_name = $2; ptp_variance = $1; ptp_layout = None } }
+      { { ptp_name = $2; ptp_variance = $1; ptp_layout = None }, None }
   | type_variance type_variable COLON layout
-      { { ptp_name = $2; ptp_variance = $1; ptp_layout = Some $4 } }
+      { { ptp_name = $2; ptp_variance = $1; ptp_layout = None }, Some $4 }
 ;
 type_variable:
   mkloc(
@@ -2998,16 +3035,17 @@ generic_constructor_declaration(opening):
   attrs = attributes
     {
       let poly, args, res = poly_args_res in
+      let layouts = attrs_of_layout_named (List.map (fun (s, l) -> Some s.txt, l) poly) None in
       let info = symbol_info $endpos in
       let loc = make_loc $sloc in
-      cid, args, res, poly, attrs, loc, info
+      cid, args, res, (attrs @ layouts), loc, info
     }
 ;
 %inline constructor_declaration(opening):
   d = generic_constructor_declaration(opening)
     {
-      let cid, args, res, poly, attrs, loc, info = d in
-      Type.constructor cid ~args ?res ~attrs ~poly ~loc ~info
+      let cid, args, res, attrs, loc, info = d in
+      Type.constructor cid ~args ?res ~attrs ~loc ~info
     }
 ;
 str_exception_declaration:
@@ -3112,8 +3150,9 @@ label_declaration_semi:
   priv = private_flag
   cs = bar_llist(declaration)
   attrs2 = post_item_attributes
-    { let docs = symbol_docs $sloc in
-      let attrs = attrs1 @ attrs2 in
+    { let params, playouts = params in
+      let docs = symbol_docs $sloc in
+      let attrs = attrs1 @ attrs2 @ attrs_of_layout playouts None in
       Te.mk tid cs ~params ~priv ~attrs ~docs,
       ext }
 ;
@@ -3126,8 +3165,8 @@ label_declaration_semi:
 %inline extension_constructor_declaration(opening):
   d = generic_constructor_declaration(opening)
     {
-      let cid, args, res, poly, attrs, loc, info = d in
-      Te.decl cid ~args ?res ~poly ~attrs ~loc ~info
+      let cid, args, res, attrs, loc, info = d in
+      Te.decl cid ~args ?res ~attrs ~loc ~info
     }
 ;
 extension_constructor_rebind(opening):
@@ -3145,11 +3184,12 @@ extension_constructor_rebind(opening):
 with_constraint:
     TYPE type_parameters mkrhs(label_longident) with_type_binder
     core_type_no_attr constraints
-      { let lident = loc_last $3 in
+      { let params, _playouts = $2 in
+        let lident = loc_last $3 in
         Pwith_type
           ($3,
            (Type.mk lident
-              ~params:$2
+              ~params
               ~cstrs:$6
               ~manifest:$5
               ~priv:$4
@@ -3158,11 +3198,12 @@ with_constraint:
        functor applications in type path */
   | TYPE type_parameters mkrhs(label_longident)
     COLONEQUAL core_type_no_attr
-      { let lident = loc_last $3 in
+      { let params, _playouts = $2 in
+        let lident = loc_last $3 in
         Pwith_typesubst
          ($3,
            (Type.mk lident
-              ~params:$2
+              ~params
               ~manifest:$5
               ~loc:(make_loc $sloc))) }
   | MODULE mkrhs(mod_longident) EQUAL mkrhs(mod_ext_longident)
@@ -3189,7 +3230,7 @@ with_type_binder:
 ;
 %inline poly(X):
   typevar_list DOT X
-    { Ptyp_poly($1, $3) }
+    { mk_poly_desc $1 $3 }
 ;
 possibly_poly(X):
   X

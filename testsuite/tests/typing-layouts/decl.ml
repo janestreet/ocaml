@@ -24,9 +24,9 @@ Error: Unknown layout asdjfioasj
 
 type 'a t : immediate = T of 'a
 [%%expect{|
-Line 1, characters 12-21:
+Line 1, characters 0-31:
 1 | type 'a t : immediate = T of 'a
-                ^^^^^^^^^
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This type does not have layout immediate
 |}]
 
@@ -40,9 +40,9 @@ type 'a t8 = Foo | Bar
 |}]
 type 'a t0 : immediate0 = Foo | Bar
 [%%expect{|
-Line 1, characters 13-23:
+Line 1, characters 0-35:
 1 | type 'a t0 : immediate0 = Foo | Bar
-                 ^^^^^^^^^^
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This type does not have layout immediate0
 |}]
 

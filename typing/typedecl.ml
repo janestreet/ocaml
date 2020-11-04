@@ -107,11 +107,9 @@ let enter_type rec_flag env sdecl (id, uid) =
   in
   let arity = List.length sdecl.ptype_params in
   if not needed then env else
-  let layout = transl_layout sdecl.ptype_layout in
+  let params, layout = transl_layout sdecl.ptype_params sdecl.ptype_attributes in
   let decl =
-    { type_params =
-        List.map (fun {ptp_layout;_} ->
-          Btype.newgenvar (transl_layout ptp_layout)) sdecl.ptype_params;
+    { type_params = List.map (fun (_,_,l) -> Btype.newgenvar l) params;
       type_arity = arity;
       type_kind = Type_abstract;
       type_private = sdecl.ptype_private;
@@ -127,7 +125,7 @@ let enter_type rec_flag env sdecl (id, uid) =
       type_immediate = Unknown;
       type_unboxed = unboxed_false_default_false;
       type_uid = uid;
-      type_layout = layout;
+      type_layout = (*FIXME_layout correct defaulting?*) (match layout with Some l -> l | None -> Types.Layout.value);
     }
   in
   add_type ~check:true id decl env
@@ -198,8 +196,8 @@ let set_fixed_row env loc p decl =
 (* Translate one type declaration *)
 
 let make_params env params =
-  let make_param p =
-    try transl_type_param env p
+  let make_param (p, _, l) =
+    try transl_type_param env (p, l)
     with Already_bound ->
       raise(Error(p.ptp_name.loc, Repeated_parameter))
   in
@@ -271,7 +269,7 @@ let make_constructor env type_path type_params spoly sargs sret_type =
          then widen so as to not introduce any new constraints *)
       let z = narrow () in
       reset_type_variables ();
-      let _vars, bindings = transl_type_var_bindings spoly in
+      let bindings = transl_type_var_bindings spoly in
       let args, targs =
         transl_constructor_arguments env false ~bindings sargs
       in
@@ -305,7 +303,9 @@ let transl_declaration env sdecl (id, uid) =
   (* Bind type parameters *)
   reset_type_variables();
   Ctype.begin_def ();
-  let tparams = make_params env sdecl.ptype_params in
+  let param_layouts, sdecl_layout =
+    transl_layout sdecl.ptype_params sdecl.ptype_attributes in
+  let tparams = make_params env param_layouts in
   let params = List.map (fun tp -> tp.typa_type.ctyp_type) tparams in
   let cstrs = List.map
     (fun (sty, sty', loc) ->
@@ -377,9 +377,12 @@ let transl_declaration env sdecl (id, uid) =
           raise(Error(sdecl.ptype_loc, Too_many_constructors));
         let make_cstr scstr =
           let name = Ident.create_local scstr.pcd_name.txt in
+          let poly = match transl_layout' scstr.pcd_attributes with
+            | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some (({txt=s; loc=Location.none}, None), l) | None, _ -> None)
+            | None -> [] in
           let targs, tret_type, args, ret_type =
             make_constructor env (Path.Pident id) params
-                             scstr.pcd_poly scstr.pcd_args scstr.pcd_res
+                             poly scstr.pcd_args scstr.pcd_res
           in
           let tcstr =
             { cd_id = name;
@@ -435,21 +438,21 @@ let transl_declaration env sdecl (id, uid) =
     let check_layout infer annot =
       match annot with
       | None -> infer
-      | Some lay as l ->
-         let l = transl_layout l in
+      | Some l ->
          if not (Layout.subset infer l) then
-           raise (Error (lay.play_loc, Layout_mismatch l));
+           raise (Error (sdecl.ptype_loc, Layout_mismatch l));
          l in
     let layout =
-      match sdecl.ptype_layout, man, kind with
-      | l, None, Type_abstract ->
-        transl_layout l
+      match sdecl_layout, man, kind with
+      | None, None, Type_abstract ->
+        Types.Layout.value
+      | Some l, None, Type_abstract ->
+        l
       | None, Some man, Type_abstract ->
         Ctype.layout_supremum env man
-      | Some lay as l, Some man, Type_abstract ->
-        let l = transl_layout l in
+      | Some l, Some man, Type_abstract ->
         if not (Ctype.check_layout env man l) then
-          raise(Error(lay.play_loc, Layout_mismatch l));
+          raise(Error(sdecl.ptype_loc, Layout_mismatch l));
         l
       | l, _, Type_open ->
         check_layout Layout.value l
@@ -1022,10 +1025,13 @@ let transl_extension_constructor env type_path type_params
   let id = Ident.create_scoped ~scope sext.pext_name.txt in
   let args, ret_type, kind =
     match sext.pext_kind with
-      Pext_decl(spoly, sargs, sret_type) ->
+      Pext_decl(_spoly, sargs, sret_type) ->
+        let poly = match transl_layout' sext.pext_attributes with
+          | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some (({txt=s;loc=Location.none}, None), l) | None, _ -> None)
+          | None -> [] in
         let targs, tret_type, args, ret_type =
           make_constructor env type_path typext_params
-            spoly sargs sret_type
+            poly sargs sret_type
         in
           args, ret_type, Text_decl(targs, tret_type)
     | Pext_rebind lid ->
@@ -1190,7 +1196,8 @@ let transl_type_extension extend env loc styext =
   | None -> ()
   | Some err -> raise (Error(loc, Extension_mismatch (type_path, err)))
   end;
-  let ttype_params = make_params env styext.ptyext_params in
+  let param_layouts, _ = transl_layout styext.ptyext_params styext.ptyext_attributes in
+  let ttype_params = make_params env param_layouts in
   let type_params = List.map (fun tp -> tp.typa_type.ctyp_type) ttype_params in
   List.iter2 (Ctype.unify_var env)
     (Ctype.instance_list type_decl.type_params)
@@ -1472,7 +1479,10 @@ let transl_with_constraint id row_path ~sig_env ~sig_decl ~outer_env sdecl =
      declaration [sdecl] in the outer environment [outer_env]. *)
   let env = outer_env in
   let loc = sdecl.ptype_loc in
-  let tparams = make_params env sdecl.ptype_params in
+  (* FIXME_layout: I don't think there's actually a way to specify these *)
+  let param_layouts, _sdecl_layout =
+    transl_layout sdecl.ptype_params sdecl.ptype_attributes in
+  let tparams = make_params env param_layouts in
   let params = List.map (fun tp -> tp.typa_type.ctyp_type) tparams in
   let arity = List.length params in
   let constraints =
@@ -1544,7 +1554,7 @@ let transl_with_constraint id row_path ~sig_env ~sig_decl ~outer_env sdecl =
       type_immediate = Unknown;
       type_unboxed;
       type_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
-      type_layout = sig_decl.type_layout; (* FIXME_layout decl. Should check! *)
+      type_layout = Types.Layout.value; (* FIXME_layout decl. Should check! *)
     }
   in
   begin match row_path with None -> ()
@@ -1608,8 +1618,8 @@ let transl_with_constraint id row_path ~sig_env ~sig_decl ~outer_env sdecl =
 (* Approximate a type declaration: just make all types abstract *)
 
 let abstract_type_decl params layout =
-  let make_param p =
-    Ctype.newvar ~layout:(transl_layout p.ptp_layout) () in
+  let make_param (_,_,layout) =
+    Ctype.newvar ~layout () in
   let arity = List.length params in
   Ctype.begin_def();
   let decl =
@@ -1627,7 +1637,7 @@ let abstract_type_decl params layout =
       type_immediate = Unknown;
       type_unboxed = unboxed_false_default_false;
       type_uid = Uid.internal_not_actually_unique;
-      type_layout = transl_layout layout;
+      type_layout = layout;
      } in
   Ctype.end_def();
   generalize_decl decl;
@@ -1637,8 +1647,10 @@ let approx_type_decl sdecl_list =
   let scope = Ctype.create_scope () in
   List.map
     (fun sdecl ->
+      let param_layouts, sdecl_layout = transl_layout sdecl.ptype_params sdecl.ptype_attributes in
+      let layout = match sdecl_layout with Some l -> l | None -> Types.Layout.value in
       (Ident.create_scoped ~scope sdecl.ptype_name.txt,
-       abstract_type_decl sdecl.ptype_params sdecl.ptype_layout))
+       abstract_type_decl param_layouts layout))
     sdecl_list
 
 (* Variant of check_abbrev_recursion to check the well-formedness
