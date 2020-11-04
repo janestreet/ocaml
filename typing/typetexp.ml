@@ -114,13 +114,56 @@ let validate_name = function
   | Some name as s ->
       if name <> "" && strict_ident name.[0] then s else None
 
-let transl_layout = function
-  | None -> Types.Layout.value
-  | Some { play_desc = ls; _ } ->
-    List.map (fun l ->
-      match Types.Layout.of_string l.txt with
+let transl_layout_component t =
+  match t.ptyp_desc with
+  | Ptyp_constr ({txt=Lident id; loc}, []) ->
+     (match Types.Layout.of_string id with
       | Some l -> l
-      | None -> raise (Error (l.loc, Env.empty, Unknown_layout l.txt))) ls
+      | None -> raise (Error (loc, Env.empty, Unknown_layout id)))
+  | _ ->
+     raise Not_found
+
+let transl_one_layout t =
+  match t.ptyp_desc with
+  | Ptyp_any -> None
+  | Ptyp_tuple ts -> Some (List.map transl_layout_component ts)
+  | _ -> Some [transl_layout_component t]
+
+let transl_layout' (attrs : Parsetree.attribute list) =
+  let layout_attrs = List.filter (function
+    | {attr_name={txt="ocaml.layout";_}; _} -> true
+    | _ -> false) attrs in
+  match layout_attrs with
+  | [] -> None
+  | [{attr_payload = PTyp ty; attr_loc}] ->
+     let rec transl acc t =
+       match t.ptyp_desc with
+       | Ptyp_arrow (lbl, arg, rest) ->
+          let name = match lbl with
+            | Nolabel -> None
+            | Labelled s | Optional s -> Some s in
+          let arg = match transl_one_layout arg with
+            | None -> Types.Layout.value
+            | Some l -> l in
+          transl ((name, arg) :: acc) rest
+       | _ -> List.rev acc, transl_one_layout t in
+     let args, ret =
+       try transl [] ty
+       with Not_found ->
+         let s = Format.asprintf "%a" Pprintast.core_type ty in
+         raise (Error (attr_loc, Env.empty, Unknown_layout s)) in
+     Some (args, ret)
+  | {attr_loc;_}::_ ->
+     raise (Error (attr_loc, Env.empty, Unknown_layout "<invalid attr>"))
+
+let transl_layout params attrs =
+  match transl_layout' attrs with
+  | Some (larg, lret) ->
+     if List.length larg <> List.length params then
+       raise (Error (Location.none, Env.empty, Unknown_layout "<wrong arity>"));
+     List.map2 (fun a (b,c) -> a, b, c) params larg, lret
+  | None ->
+     List.map (fun a -> a, None, Types.Layout.value) params, None
 
 let new_global_var ?name layout =
   new_global_var ?name:(validate_name name) layout
@@ -136,9 +179,8 @@ let type_variable loc name =
 let valid_tyvar_name name =
   name <> "" && name.[0] <> '_'
 
-let transl_type_param env { ptp_name; ptp_variance; ptp_layout } =
+let transl_type_param env ({ ptp_name; ptp_variance; ptp_layout=_ }, layout) =
   let loc = ptp_name.loc in
-  let layout = transl_layout ptp_layout in
   let typa_type =
     match ptp_name.txt with
       None ->
@@ -497,7 +539,8 @@ and transl_type_aux env policy styp =
       let ty = newty (Tvariant row) in
       ctyp (Ttyp_variant (tfields, closed, present)) ty
   | Ptyp_poly(vars, st) ->
-      let vars = List.map (fun (v,l) -> v.txt, transl_layout l) vars in
+      let vars, _ = transl_layout vars st.ptyp_attributes in
+      let vars = List.map (fun ((v,_),_,l) -> v.txt, l) vars in
       begin_def();
       let new_univars = List.map (fun (name,layout) ->
         name, newvar ~name layout) vars in
@@ -674,13 +717,11 @@ let globalize_used_variables env ?(bindings = TyVarMap.empty) fixed =
 type var_bindings_list = (type_expr * Location.t * layout) TyVarMap.t
 let empty_var_bindings : var_bindings_list = TyVarMap.empty
 
-let transl_type_var_bindings (vars : newtype list) =
-  let vars = List.map (fun (name, layout) ->
-      name.txt, name.loc, transl_layout layout) vars in
-  let tyvars = List.fold_left (fun acc (name, loc, layout) ->
+let transl_type_var_bindings (vars : (newtype * Types.layout) list) =
+  let tyvars = List.fold_left (fun acc (({txt=name; loc},_), layout) ->
     let v = newvar ~name layout in
     TyVarMap.add name (v, loc, layout) acc) TyVarMap.empty vars in
-  vars, tyvars
+  tyvars
 
 let transl_simple_type env ?(bindings = TyVarMap.empty) fixed styp =
   univars := [];
@@ -732,14 +773,16 @@ let transl_type_scheme env styp =
     match styp with
     | {ptyp_desc = Ptyp_poly (vars, styp); _} -> vars, styp
     | _ -> [], styp in
-  let vars, bindings = transl_type_var_bindings vars in
+  let vars, _ = transl_layout vars styp.ptyp_attributes in
+  let vars = vars |> List.map (fun (t, _, l) -> t, l) in
+  let bindings = transl_type_var_bindings vars in
   let typ = transl_simple_type env ~bindings false styp in
   end_def();
   generalize typ.ctyp_type;
   match vars with
   | [] -> typ
   | vars -> {
-      ctyp_desc = Ttyp_poly (List.map (fun (n,_,l)->n,l) vars, typ);
+      ctyp_desc = Ttyp_poly (List.map (fun ((n,_),l)->n.txt,l) vars, typ);
       ctyp_type = typ.ctyp_type;
       ctyp_env = typ.ctyp_env;
       ctyp_loc = styp.ptyp_loc;

@@ -3506,8 +3506,9 @@ and type_expect_
       in
       re { exp with exp_extra =
              (Texp_poly cty, loc, sexp.pexp_attributes) :: exp.exp_extra }
-  | Pexp_newtype(({txt=name}, layout), sbody) ->
-      let layout = Typetexp.transl_layout layout in
+  | Pexp_newtype(({txt=name}, _), sbody) ->
+      let _, layout = Typetexp.transl_layout [] sexp.pexp_attributes in
+      let layout = match layout with Some l -> l | None -> Types.Layout.value in
       let ty =
         if Typetexp.valid_tyvar_name name then
           newvar ~layout ~name ()

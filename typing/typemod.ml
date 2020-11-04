@@ -468,10 +468,11 @@ let merge_constraint initial_env remove_aliases loc sg constr =
       when Ident.name id = s && Typedecl.is_fixed_type sdecl ->
         let decl_row =
           let arity = List.length sdecl.ptype_params in
+          let param_layouts, _ = Typetexp.transl_layout sdecl.ptype_params sdecl.ptype_attributes in
           { type_params =
-              List.map (fun {ptp_layout;_} ->
-                Btype.newgenvar (Typetexp.transl_layout ptp_layout))
-                sdecl.ptype_params;
+              List.map (fun (_,_,l) ->
+                Btype.newgenvar l)
+                param_layouts;
             type_arity = arity;
             type_kind = Type_abstract;
             type_private = Private;

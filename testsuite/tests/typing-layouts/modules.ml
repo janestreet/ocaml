@@ -191,9 +191,9 @@ Error: Signature mismatch:
 
 module type A = sig type foo : immediate = string end
 [%%expect{|
-Line 1, characters 31-40:
+Line 1, characters 20-49:
 1 | module type A = sig type foo : immediate = string end
-                                   ^^^^^^^^^
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This type does not have layout immediate
 |}]
 module type A = sig type foo = string imm end

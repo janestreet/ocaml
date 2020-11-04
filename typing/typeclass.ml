@@ -1393,7 +1393,7 @@ let class_infos define_class kind
   (* Introduce class parameters *)
   let ci_params =
     let make_param p =
-      try transl_type_param env p
+      try transl_type_param env (p,Types.Layout.value)
       with Already_bound ->
         raise(Error(p.ptp_name.loc, env, Repeated_parameter))
     in
