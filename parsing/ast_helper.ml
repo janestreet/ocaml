@@ -82,6 +82,7 @@ module Typ = struct
     let check_variable vl loc v =
       if List.mem v vl then
         raise Syntaxerr.(Error(Variable_in_scope(loc,v))) in
+    let var_names = List.map (fun v -> v.txt) var_names in
     let rec loop t =
       let desc =
         match t.ptyp_desc with
@@ -107,10 +108,10 @@ module Typ = struct
         | Ptyp_variant(row_field_list, flag, lbl_lst_option) ->
             Ptyp_variant(List.map loop_row_field row_field_list,
                          flag, lbl_lst_option)
-        | Ptyp_poly(var_lst, core_type) ->
-          List.iter (fun (v, _layout) ->
-            check_variable var_names t.ptyp_loc v.txt) var_lst;
-            Ptyp_poly(var_lst, loop core_type)
+        | Ptyp_poly(string_lst, core_type) ->
+          List.iter (fun v ->
+            check_variable var_names t.ptyp_loc v.txt) string_lst;
+            Ptyp_poly(string_lst, loop core_type)
         | Ptyp_package(longident,lst) ->
             Ptyp_package(longident,List.map (fun (n,typ) -> (n,loop typ) ) lst)
         | Ptyp_extension (s, arg) ->
@@ -205,7 +206,7 @@ module Exp = struct
   let lazy_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_lazy a)
   let poly ?loc ?attrs a b = mk ?loc ?attrs (Pexp_poly (a, b))
   let object_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_object a)
-  let newtype ?loc ?attrs a l b = mk ?loc ?attrs (Pexp_newtype ((a, l), b))
+  let newtype ?loc ?attrs a b = mk ?loc ?attrs (Pexp_newtype (a, b))
   let pack ?loc ?attrs a = mk ?loc ?attrs (Pexp_pack a)
   let open_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_open (a, b))
   let letop ?loc ?attrs let_ ands body =
@@ -513,7 +514,6 @@ module Type = struct
       ?(kind = Ptype_abstract)
       ?(priv = Public)
       ?manifest
-      ?layout
       name =
     {
      ptype_name = name;
@@ -522,19 +522,17 @@ module Type = struct
      ptype_kind = kind;
      ptype_private = priv;
      ptype_manifest = manifest;
-     ptype_layout = layout;
      ptype_attributes =
        add_text_attrs text (add_docs_attrs docs attrs);
      ptype_loc = loc;
     }
 
   let constructor ?(loc = !default_loc) ?(attrs = []) ?(info = empty_info)
-        ?(args = Pcstr_tuple []) ?res ?(poly = []) name =
+        ?(args = Pcstr_tuple []) ?res name =
     {
      pcd_name = name;
      pcd_args = args;
      pcd_res = res;
-     pcd_poly = poly;
      pcd_loc = loc;
      pcd_attributes = add_info_attrs info attrs;
     }
@@ -582,11 +580,10 @@ module Te = struct
     }
 
   let decl ?(loc = !default_loc) ?(attrs = []) ?(docs = empty_docs)
-             ?(info = empty_info) ?(args = Pcstr_tuple []) ?res ?(poly = [])
-             name =
+             ?(info = empty_info) ?(args = Pcstr_tuple []) ?res name =
     {
      pext_name = name;
-     pext_kind = Pext_decl(poly, args, res);
+     pext_kind = Pext_decl(args, res);
      pext_loc = loc;
      pext_attributes = add_docs_attrs docs (add_info_attrs info attrs);
     }

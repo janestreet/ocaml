@@ -219,18 +219,15 @@ let module_binding sub mb =
     (map_loc sub mb.mb_name)
     (sub.module_expr sub mb.mb_expr)
 
-let layout l =
-  { play_desc =
-      List.map (fun p -> Location.mknoloc (Types.Layout.to_string p)) l;
-    play_loc = Location.none }
-
+(* FIXME_layout drops layout annotations *)
 let type_parameter _sub p =
-  {
-    ptp_name = p.typa_name;
-    ptp_variance = p.typa_variance;
-    ptp_layout = Some (layout p.typa_layout)
-  }
+  let name =
+    match p.typa_name.txt with
+    | Some n -> Ptyp_var n
+    | None -> Ptyp_any in
+  (Typ.mk ~loc:p.typa_name.loc name, p.typa_variance)
 
+(* FIXME_layout drops layout annotations *)
 let type_declaration sub decl =
   let loc = sub.location sub decl.typ_loc in
   let attrs = sub.attributes sub decl.typ_attributes in
@@ -294,7 +291,7 @@ let extension_constructor sub ext =
     (map_loc sub ext.ext_name)
     (match ext.ext_kind with
       | Text_decl (args, ret) ->
-          Pext_decl ([], constructor_arguments sub args,
+          Pext_decl (constructor_arguments sub args,
                      Option.map (sub.typ sub) ret)
       | Text_rebind (_p, lid) -> Pext_rebind (map_loc sub lid)
     )
@@ -376,7 +373,8 @@ let exp_extra sub (extra, loc, attrs) sexp =
     | Texp_constraint cty ->
         Pexp_constraint (sexp, sub.typ sub cty)
     | Texp_poly cto -> Pexp_poly (sexp, Option.map (sub.typ sub) cto)
-    | Texp_newtype (s, l) -> Pexp_newtype ((mkloc s loc, Some (layout l)), sexp)
+    (* FIXME_layout drops layout annotations *)
+    | Texp_newtype (s, _layout) -> Pexp_newtype (mkloc s loc, sexp)
   in
   Exp.mk ~loc ~attrs desc
 
@@ -799,7 +797,8 @@ let core_type sub ct =
     | Ttyp_variant (list, bool, labels) ->
         Ptyp_variant (List.map (sub.row_field sub) list, bool, labels)
     | Ttyp_poly (list, ct) ->
-        let list = List.map (fun (v,l) -> mkloc v loc, Some (layout l)) list in
+       (* FIXME_layout drops layout annotations *)
+        let list = List.map (fun (v, _layout) -> mkloc v loc) list in
         Ptyp_poly (list, sub.typ sub ct)
     | Ttyp_package pack -> Ptyp_package (sub.package_type sub pack)
   in

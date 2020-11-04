@@ -356,8 +356,7 @@ let transl_variance : Asttypes.variance -> _ = function
   | Invariant -> (false, false, false)
 
 let variance_of_params ptype_params =
-  List.map (fun p ->
-    transl_variance p.Parsetree.ptp_variance) ptype_params
+  List.map transl_variance (List.map snd ptype_params)
 
 let variance_of_sdecl sdecl =
   variance_of_params sdecl.Parsetree.ptype_params

@@ -199,7 +199,7 @@ let make_params env params =
   let make_param (p, _, l) =
     try transl_type_param env (p, l)
     with Already_bound ->
-      raise(Error(p.ptp_name.loc, Repeated_parameter))
+      raise(Error((fst p).ptyp_loc, Repeated_parameter))
   in
     List.map make_param params
 
@@ -378,7 +378,7 @@ let transl_declaration env sdecl (id, uid) =
         let make_cstr scstr =
           let name = Ident.create_local scstr.pcd_name.txt in
           let poly = match transl_layout' scstr.pcd_attributes with
-            | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some (({txt=s; loc=Location.none}, None), l) | None, _ -> None)
+            | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some ({txt=s; loc=Location.none}, l) | None, _ -> None)
             | None -> [] in
           let targs, tret_type, args, ret_type =
             make_constructor env (Path.Pident id) params
@@ -1025,9 +1025,9 @@ let transl_extension_constructor env type_path type_params
   let id = Ident.create_scoped ~scope sext.pext_name.txt in
   let args, ret_type, kind =
     match sext.pext_kind with
-      Pext_decl(_spoly, sargs, sret_type) ->
+      Pext_decl(sargs, sret_type) ->
         let poly = match transl_layout' sext.pext_attributes with
-          | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some (({txt=s;loc=Location.none}, None), l) | None, _ -> None)
+          | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some ({txt=s;loc=Location.none}, l) | None, _ -> None)
           | None -> [] in
         let targs, tret_type, args, ret_type =
           make_constructor env type_path typext_params

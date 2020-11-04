@@ -3506,7 +3506,7 @@ and type_expect_
       in
       re { exp with exp_extra =
              (Texp_poly cty, loc, sexp.pexp_attributes) :: exp.exp_extra }
-  | Pexp_newtype(({txt=name}, _), sbody) ->
+  | Pexp_newtype({txt=name}, sbody) ->
       let _, layout = Typetexp.transl_layout [] sexp.pexp_attributes in
       let layout = match layout with Some l -> l | None -> Types.Layout.value in
       let ty =

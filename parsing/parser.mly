@@ -355,6 +355,12 @@ let exp_of_label ~loc lbl =
 let pat_of_label ~loc lbl =
   mkpat ~loc (Ppat_var (loc_last lbl))
 
+type layout =
+    {
+     play_desc: string Asttypes.loc list;
+     play_loc: Location.t;
+    }
+
 let attrs_of_layout_named largs lret =
   if lret = None && List.for_all (fun (_,x) -> x = None) largs then []
   else begin
@@ -385,13 +391,12 @@ let mk_newtypes ~loc newtypes exp =
   List.fold_right (fun (newtype, layout) exp ->
     let loc = make_loc loc in
     let attrs = attrs_of_layout [] layout in
-    Exp.mk ~loc ~attrs (Pexp_newtype ((newtype, None), exp)))
+    Exp.mk ~loc ~attrs (Pexp_newtype (newtype, exp)))
     newtypes exp
 
 let mk_poly_desc newtypes body =
   let layouts = List.map snd newtypes in
-  (* FIXME *)
-  let newtypes = List.map (fun (s,_) -> (s, None)) newtypes in
+  let newtypes = List.map fst newtypes in
   let attrs = attrs_of_layout layouts None in
   let body = { body with ptyp_attributes = attrs @ body.ptyp_attributes } in
   Ptyp_poly (newtypes, body)
@@ -401,7 +406,7 @@ let wrap_type_annotation ~loc newtypes core_type body =
   let mk_newtypes = mk_newtypes ~loc in
   let exp = mkexp(Pexp_constraint(body,core_type)) in
   let exp = mk_newtypes newtypes exp in
-  let names = List.map (fun (s, _) -> s.txt) newtypes in
+  let names = List.map fst newtypes in
   (exp, ghtyp(mk_poly_desc newtypes (Typ.varify_constructors names core_type)))
 
 let wrap_exp_attrs ~loc body (ext, attrs) =
@@ -2929,7 +2934,7 @@ generic_type_declaration(flag, kind):
       let attrs = attrs1 @ attrs2 @ attrs_of_layout playouts layout in
       let loc = make_loc $sloc in
       let text = symbol_text $symbolstartpos in
-      Type.mk id ~params ~cstrs ~kind ~priv ?manifest ?layout
+      Type.mk id ~params ~cstrs ~kind ~priv ?manifest
         ~attrs ~loc ~docs ~text
     }
 ;
@@ -2987,22 +2992,22 @@ type_parameters:
     /* empty */
       { [], [] }
   | v = type_variance p = type_variable
-      { [{ ptp_name = p; ptp_variance = v; ptp_layout = None}], [None] }
+      { [p, v], [None] }
   | LPAREN ps = separated_nonempty_llist(COMMA, type_parameter) RPAREN
       { List.map fst ps, List.map snd ps }
 ;
 type_parameter:
     type_variance type_variable
-      { { ptp_name = $2; ptp_variance = $1; ptp_layout = None }, None }
+      { ($2, $1), None }
   | type_variance type_variable COLON layout
-      { { ptp_name = $2; ptp_variance = $1; ptp_layout = None }, Some $4 }
+      { ($2, $1), Some $4 }
 ;
 type_variable:
-  mkloc(
+  mktyp(
     QUOTE tyvar = ident
-      { Some tyvar }
+      { Ptyp_var tyvar }
   | UNDERSCORE
-      { None }
+      { Ptyp_any }
   ) { $1 }
 ;
 
@@ -3074,16 +3079,18 @@ sig_exception_declaration:
   attrs2 = attributes
   attrs = post_item_attributes
     { let poly, args, res = poly_args_res in
+      let layouts = attrs_of_layout_named (List.map (fun (s, l) -> Some s.txt, l) poly) None in
       let loc = make_loc $sloc in
       let docs = symbol_docs $sloc in
       Te.mk_exception ~attrs
-        (Te.decl id ~args ?res ~attrs:(attrs1 @ attrs2) ~poly ~loc ~docs)
+        (Te.decl id ~args ?res ~attrs:(attrs1 @ attrs2 @ layouts) ~loc ~docs)
       , ext }
 ;
 %inline let_exception_declaration:
     mkrhs(constr_ident) generalized_constructor_arguments attributes
       { let poly, args, res = $2 in
-        Te.decl $1 ~args ?res ~poly ~attrs:$3 ~loc:(make_loc $sloc) }
+        let layouts = attrs_of_layout_named (List.map (fun (s, l) -> Some s.txt, l) poly) None in
+        Te.decl $1 ~args ?res ~attrs:($3 @ layouts) ~loc:(make_loc $sloc) }
 ;
 generalized_constructor_arguments:
     /*empty*/                     { ([], Pcstr_tuple [],None) }

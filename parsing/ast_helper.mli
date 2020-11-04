@@ -80,15 +80,14 @@ module Typ :
     val alias: ?loc:loc -> ?attrs:attrs -> core_type -> string -> core_type
     val variant: ?loc:loc -> ?attrs:attrs -> row_field list -> closed_flag
                  -> label list option -> core_type
-    val poly: ?loc:loc -> ?attrs:attrs -> (str * layout option) list
-                 -> core_type -> core_type
+    val poly: ?loc:loc -> ?attrs:attrs -> str list -> core_type -> core_type
     val package: ?loc:loc -> ?attrs:attrs -> lid -> (lid * core_type) list
                  -> core_type
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> core_type
 
     val force_poly: core_type -> core_type
 
-    val varify_constructors: string list -> core_type -> core_type
+    val varify_constructors: str list -> core_type -> core_type
     (** [varify_constructors newtypes te] is type expression [te], of which
         any of nullary type constructor [tc] is replaced by type variable of
         the same name, if [tc]'s name appears in [newtypes].
@@ -181,8 +180,7 @@ module Exp:
     val poly: ?loc:loc -> ?attrs:attrs -> expression -> core_type option
               -> expression
     val object_: ?loc:loc -> ?attrs:attrs -> class_structure -> expression
-    val newtype: ?loc:loc -> ?attrs:attrs -> str -> layout option -> expression
-              -> expression
+    val newtype: ?loc:loc -> ?attrs:attrs -> str -> expression -> expression
     val pack: ?loc:loc -> ?attrs:attrs -> module_expr -> expression
     val open_: ?loc:loc -> ?attrs:attrs -> open_declaration -> expression
                -> expression
@@ -206,15 +204,13 @@ module Val:
 module Type:
   sig
     val mk: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
-      ?params:type_parameter list ->
+      ?params:(core_type * variance) list ->
       ?cstrs:(core_type * core_type * loc) list ->
-      ?kind:type_kind -> ?priv:private_flag -> ?manifest:core_type ->
-      ?layout:layout -> str ->
+      ?kind:type_kind -> ?priv:private_flag -> ?manifest:core_type -> str ->
       type_declaration
 
     val constructor: ?loc:loc -> ?attrs:attrs -> ?info:info ->
-      ?args:constructor_arguments -> ?res:core_type -> ?poly:newtype list ->
-      str ->
+      ?args:constructor_arguments -> ?res:core_type -> str ->
       constructor_declaration
     val field: ?loc:loc -> ?attrs:attrs -> ?info:info ->
       ?mut:mutable_flag -> str -> core_type -> label_declaration
@@ -224,7 +220,7 @@ module Type:
 module Te:
   sig
     val mk: ?loc:loc -> ?attrs:attrs -> ?docs:docs ->
-      ?params:type_parameter list -> ?priv:private_flag ->
+      ?params:(core_type * variance) list -> ?priv:private_flag ->
       lid -> extension_constructor list -> type_extension
 
     val mk_exception: ?loc:loc -> ?attrs:attrs -> ?docs:docs ->
@@ -234,8 +230,7 @@ module Te:
       str -> extension_constructor_kind -> extension_constructor
 
     val decl: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?info:info ->
-      ?args:constructor_arguments -> ?res:core_type -> ?poly:newtype list ->
-      str ->
+      ?args:constructor_arguments -> ?res:core_type -> str ->
       extension_constructor
     val rebind: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?info:info ->
       str -> lid -> extension_constructor
@@ -459,7 +454,7 @@ module Cf:
 module Ci:
   sig
     val mk: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
-      ?virt:virtual_flag -> ?params:type_parameter list ->
+      ?virt:virtual_flag -> ?params:(core_type * variance) list ->
       str -> 'a -> 'a class_infos
   end
 
