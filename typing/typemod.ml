@@ -423,9 +423,9 @@ let type_decl_is_alias sdecl = (* assuming no explicit constraint *)
        when List.length stl = List.length sdecl.ptype_params ->
      begin
        match
-         List.iter2 (fun x y ->
-             match x, y.ptp_name.txt with
-               {ptyp_desc=Ptyp_var sx}, Some sy
+         List.iter2 (fun x (y, _) ->
+             match x, y with
+               {ptyp_desc=Ptyp_var sx}, {ptyp_desc=Ptyp_var sy}
                   when sx = sy -> ()
              | _, _ -> raise Exit)
            stl sdecl.ptype_params;
@@ -479,9 +479,9 @@ let merge_constraint initial_env remove_aliases loc sg constr =
             type_manifest = None;
             type_variance =
               List.map
-                (fun t ->
+                (fun (_, v) ->
                    let (c, n) =
-                     match t.ptp_variance with
+                     match v with
                      | Covariant -> true, false
                      | Contravariant -> false, true
                      | Invariant -> false, false

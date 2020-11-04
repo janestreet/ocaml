@@ -78,7 +78,6 @@ let create_package_mty fake loc env (p, l) =
                ptype_cstrs = [];
                ptype_kind = Ptype_abstract;
                ptype_private = Asttypes.Public;
-               ptype_layout = None;
                ptype_manifest = if fake then None else Some t;
                ptype_attributes = [];
                ptype_loc = loc} in
@@ -179,15 +178,13 @@ let type_variable loc name =
 let valid_tyvar_name name =
   name <> "" && name.[0] <> '_'
 
-let transl_type_param env ({ ptp_name; ptp_variance; ptp_layout=_ }, layout) =
-  let loc = ptp_name.loc in
-  let typa_type =
-    match ptp_name.txt with
-      None ->
-        let ty = new_global_var ~name:"_" layout in
-          { ctyp_desc = Ttyp_any; ctyp_type = ty; ctyp_env = env;
-            ctyp_loc = loc; ctyp_attributes = []; }
-    | Some name ->
+let transl_type_param _env ((styp, variance), layout) =
+  let loc = styp.ptyp_loc in
+  let typa_type, name =
+    match styp.ptyp_desc with
+      Ptyp_any ->
+        new_global_var ~name:"_" layout, None
+    | Ptyp_var name ->
         let ty =
           try
             if not (valid_tyvar_name name) then
@@ -198,13 +195,19 @@ let transl_type_param env ({ ptp_name; ptp_variance; ptp_layout=_ }, layout) =
             let v = new_global_var ~name layout in
               type_variables := TyVarMap.add name v !type_variables;
               v
-        in
-          { ctyp_desc = Ttyp_var name; ctyp_type = ty; ctyp_env = env;
-            ctyp_loc = loc; ctyp_attributes = []; } in
+        in ty, Some name
+    | _ -> assert false in
   { typa_type;
-    typa_name = ptp_name;
-    typa_variance = ptp_variance;
+    typa_name = { txt = name; loc = styp.ptyp_loc };
+    typa_variance = variance;
     typa_layout = layout }
+
+let transl_type_param env ((styp, variance), layout) =
+  (* Currently useless, since type parameters cannot hold attributes
+     (but this could easily be lifted in the future). *)
+  Builtin_attributes.warning_scope styp.ptyp_attributes
+    (fun () -> transl_type_param env ((styp, variance), layout))
+
 
 let new_pre_univar ?name layout =
   let v = newvar ?name layout in pre_univars := v :: !pre_univars; v
@@ -540,7 +543,7 @@ and transl_type_aux env policy styp =
       ctyp (Ttyp_variant (tfields, closed, present)) ty
   | Ptyp_poly(vars, st) ->
       let vars, _ = transl_layout vars st.ptyp_attributes in
-      let vars = List.map (fun ((v,_),_,l) -> v.txt, l) vars in
+      let vars = List.map (fun (v,_,l) -> v.txt, l) vars in
       begin_def();
       let new_univars = List.map (fun (name,layout) ->
         name, newvar ~name layout) vars in
@@ -717,8 +720,8 @@ let globalize_used_variables env ?(bindings = TyVarMap.empty) fixed =
 type var_bindings_list = (type_expr * Location.t * layout) TyVarMap.t
 let empty_var_bindings : var_bindings_list = TyVarMap.empty
 
-let transl_type_var_bindings (vars : (newtype * Types.layout) list) =
-  let tyvars = List.fold_left (fun acc (({txt=name; loc},_), layout) ->
+let transl_type_var_bindings (vars : (string Asttypes.loc * Types.layout) list) =
+  let tyvars = List.fold_left (fun acc ({txt=name; loc}, layout) ->
     let v = newvar ~name layout in
     TyVarMap.add name (v, loc, layout) acc) TyVarMap.empty vars in
   tyvars
@@ -782,7 +785,7 @@ let transl_type_scheme env styp =
   match vars with
   | [] -> typ
   | vars -> {
-      ctyp_desc = Ttyp_poly (List.map (fun ((n,_),l)->n.txt,l) vars, typ);
+      ctyp_desc = Ttyp_poly (List.map (fun (n,l)->n.txt,l) vars, typ);
       ctyp_type = typ.ctyp_type;
       ctyp_env = typ.ctyp_env;
       ctyp_loc = styp.ptyp_loc;

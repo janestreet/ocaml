@@ -199,7 +199,7 @@ let make_params env params =
   let make_param (p, _, l) =
     try transl_type_param env (p, l)
     with Already_bound ->
-      raise(Error(p.ptp_name.loc, Repeated_parameter))
+      raise(Error((fst p).ptyp_loc, Repeated_parameter))
   in
     List.map make_param params
 
@@ -306,7 +306,7 @@ let transl_declaration env sdecl (id, uid) =
   let param_layouts, sdecl_layout =
     transl_layout sdecl.ptype_params sdecl.ptype_attributes in
   let tparams = make_params env param_layouts in
-  let params = List.map (fun tp -> tp.typa_type.ctyp_type) tparams in
+  let params = List.map (fun tp -> tp.typa_type) tparams in
   let cstrs = List.map
     (fun (sty, sty', loc) ->
       transl_simple_type env false sty,
@@ -378,7 +378,7 @@ let transl_declaration env sdecl (id, uid) =
         let make_cstr scstr =
           let name = Ident.create_local scstr.pcd_name.txt in
           let poly = match transl_layout' scstr.pcd_attributes with
-            | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some (({txt=s; loc=Location.none}, None), l) | None, _ -> None)
+            | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some ({txt=s; loc=Location.none}, l) | None, _ -> None)
             | None -> [] in
           let targs, tret_type, args, ret_type =
             make_constructor env (Path.Pident id) params
@@ -1025,9 +1025,9 @@ let transl_extension_constructor env type_path type_params
   let id = Ident.create_scoped ~scope sext.pext_name.txt in
   let args, ret_type, kind =
     match sext.pext_kind with
-      Pext_decl(_spoly, sargs, sret_type) ->
+      Pext_decl(sargs, sret_type) ->
         let poly = match transl_layout' sext.pext_attributes with
-          | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some (({txt=s;loc=Location.none}, None), l) | None, _ -> None)
+          | Some (vars, _) -> vars |> List.filter_map (function Some s, l -> Some ({txt=s;loc=Location.none}, l) | None, _ -> None)
           | None -> [] in
         let targs, tret_type, args, ret_type =
           make_constructor env type_path typext_params
@@ -1198,7 +1198,7 @@ let transl_type_extension extend env loc styext =
   end;
   let param_layouts, _ = transl_layout styext.ptyext_params styext.ptyext_attributes in
   let ttype_params = make_params env param_layouts in
-  let type_params = List.map (fun tp -> tp.typa_type.ctyp_type) ttype_params in
+  let type_params = List.map (fun tp -> tp.typa_type) ttype_params in
   List.iter2 (Ctype.unify_var env)
     (Ctype.instance_list type_decl.type_params)
     type_params;
@@ -1483,7 +1483,7 @@ let transl_with_constraint id row_path ~sig_env ~sig_decl ~outer_env sdecl =
   let param_layouts, _sdecl_layout =
     transl_layout sdecl.ptype_params sdecl.ptype_attributes in
   let tparams = make_params env param_layouts in
-  let params = List.map (fun tp -> tp.typa_type.ctyp_type) tparams in
+  let params = List.map (fun tp -> tp.typa_type) tparams in
   let arity = List.length params in
   let constraints =
     List.map (fun (ty, ty', loc) ->
@@ -1513,9 +1513,9 @@ let transl_with_constraint id row_path ~sig_env ~sig_decl ~outer_env sdecl =
   let arity_ok = arity = sig_decl.type_arity in
   if arity_ok then
     List.iter2 (fun typa tparam ->
-      try Ctype.unify_var env typa.typa_type.ctyp_type tparam
+      try Ctype.unify_var env typa.typa_type tparam
       with Ctype.Unify tr ->
-        raise(Error(typa.typa_type.ctyp_loc, Inconsistent_constraint (env, tr)))
+        raise(Error(typa.typa_name.loc, Inconsistent_constraint (env, tr)))
     ) tparams sig_decl.type_params;
   List.iter (fun (cty, cty', loc) ->
     (* Note: contraints must also be enforced in [sig_env] because

@@ -46,7 +46,6 @@ type iterator = {
   include_declaration: iterator -> include_declaration -> unit;
   include_description: iterator -> include_description -> unit;
   label_declaration: iterator -> label_declaration -> unit;
-  layout: iterator -> layout -> unit;
   location: iterator -> Location.t -> unit;
   module_binding: iterator -> module_binding -> unit;
   module_declaration: iterator -> module_declaration -> unit;
@@ -69,7 +68,6 @@ type iterator = {
   type_extension: iterator -> type_extension -> unit;
   type_exception: iterator -> type_exception -> unit;
   type_kind: iterator -> type_kind -> unit;
-  type_parameter: iterator -> type_parameter -> unit;
   value_binding: iterator -> value_binding -> unit;
   value_description: iterator -> value_description -> unit;
   with_constraint: iterator -> with_constraint -> unit;
@@ -79,6 +77,7 @@ type iterator = {
     argument the iterator to be applied to children in the syntax
     tree. *)
 
+let iter_fst f (x, _) = f x
 let iter_snd f (_, y) = f y
 let iter_tuple f1 f2 (x, y) = f1 x; f2 y
 let iter_tuple3 f1 f2 f3 (x, y, z) = f1 x; f2 y; f3 z
@@ -111,18 +110,6 @@ module T = struct
     | Otag (_, t) -> sub.typ sub t
     | Oinherit t -> sub.typ sub t
 
-  let newtype sub (s, l) =
-    sub.location sub s.loc;
-    iter_opt (sub.layout sub) l
-
-  let iter_layout sub l =
-    sub.location sub l.play_loc;
-    List.iter (iter_loc sub) l.play_desc
-
-  let iter_type_parameter sub p =
-    iter_loc sub p.ptp_name;
-    iter_opt (sub.layout sub) p.ptp_layout
-
   let iter sub {ptyp_desc = desc; ptyp_loc = loc; ptyp_attributes = attrs} =
     sub.location sub loc;
     sub.attributes sub attrs;
@@ -152,17 +139,15 @@ module T = struct
        ptype_kind;
        ptype_private = _;
        ptype_manifest;
-       ptype_layout;
        ptype_attributes;
        ptype_loc} =
     iter_loc sub ptype_name;
-    List.iter (sub.type_parameter sub) ptype_params;
+    List.iter (iter_fst (sub.typ sub)) ptype_params;
     List.iter
       (iter_tuple3 (sub.typ sub) (sub.typ sub) (sub.location sub))
       ptype_cstrs;
     sub.type_kind sub ptype_kind;
     iter_opt (sub.typ sub) ptype_manifest;
-    iter_opt (sub.layout sub) ptype_layout;
     sub.location sub ptype_loc;
     sub.attributes sub ptype_attributes
 
@@ -186,7 +171,7 @@ module T = struct
        ptyext_attributes} =
     iter_loc sub ptyext_path;
     List.iter (sub.extension_constructor sub) ptyext_constructors;
-    List.iter (sub.type_parameter sub) ptyext_params;
+    List.iter (iter_fst (sub.typ sub)) ptyext_params;
     sub.location sub ptyext_loc;
     sub.attributes sub ptyext_attributes
 
@@ -197,10 +182,8 @@ module T = struct
     sub.attributes sub ptyexn_attributes
 
   let iter_extension_constructor_kind sub = function
-      Pext_decl(ctvs, ctl, cto) ->
-        List.iter (newtype sub) ctvs;
-        iter_constructor_arguments sub ctl;
-        iter_opt (sub.typ sub) cto
+      Pext_decl(ctl, cto) ->
+        iter_constructor_arguments sub ctl; iter_opt (sub.typ sub) cto
     | Pext_rebind li ->
         iter_loc sub li
 
@@ -421,7 +404,7 @@ module E = struct
     | Pexp_poly (e, t) ->
         sub.expr sub e; iter_opt (sub.typ sub) t
     | Pexp_object cls -> sub.class_structure sub cls
-    | Pexp_newtype (nt, e) -> T.newtype sub nt; sub.expr sub e
+    | Pexp_newtype (_s, e) -> sub.expr sub e
     | Pexp_pack me -> sub.module_expr sub me
     | Pexp_open (o, e) ->
         sub.open_declaration sub o; sub.expr sub e
@@ -523,7 +506,7 @@ module CE = struct
 
   let class_infos sub f {pci_virt = _; pci_params = pl; pci_name; pci_expr;
                          pci_loc; pci_attributes} =
-    List.iter (sub.type_parameter sub) pl;
+    List.iter (iter_fst (sub.typ sub)) pl;
     iter_loc sub pci_name;
     f pci_expr;
     sub.location sub pci_loc;
@@ -555,10 +538,8 @@ let default_iterator =
       (fun this -> CE.class_infos this (this.class_type this));
     class_description =
       (fun this -> CE.class_infos this (this.class_type this));
-    layout = T.iter_layout;
     type_declaration = T.iter_type_declaration;
     type_kind = T.iter_type_kind;
-    type_parameter = T.iter_type_parameter;
     typ = T.iter;
     row_field = T.row_field;
     object_field = T.object_field;
@@ -649,12 +630,10 @@ let default_iterator =
 
 
     constructor_declaration =
-      (fun this {pcd_name; pcd_args; pcd_res; pcd_poly;
-                 pcd_loc; pcd_attributes} ->
+      (fun this {pcd_name; pcd_args; pcd_res; pcd_loc; pcd_attributes} ->
          iter_loc this pcd_name;
          T.iter_constructor_arguments this pcd_args;
          iter_opt (this.typ this) pcd_res;
-         List.iter (T.newtype this) pcd_poly;
          this.location this pcd_loc;
          this.attributes this pcd_attributes
       );

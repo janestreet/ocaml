@@ -476,8 +476,8 @@ and variance ppf p =
   fprintf ppf "%s" s
 
 and type_parameter i ppf p =
-  line i ppf "typa_type =\n";
-  core_type (i+1) ppf p.typa_type;
+  line i ppf "typa_name =\n";
+  option (i+1) string ppf p.typa_name.txt;
   line i ppf "typa_variance %a\n" variance p.typa_variance;
   line i ppf "typa_layout %a\n" layout p.typa_layout
 

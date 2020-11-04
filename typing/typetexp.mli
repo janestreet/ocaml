@@ -26,7 +26,7 @@ val transl_layout':
 type var_bindings_list
 val empty_var_bindings : var_bindings_list
 val transl_type_var_bindings :
-        (Parsetree.newtype * Types.layout) list -> var_bindings_list
+        (string Asttypes.loc * Types.layout) list -> var_bindings_list
 val transl_simple_type:
         Env.t -> ?bindings:var_bindings_list ->
         bool -> Parsetree.core_type -> Typedtree.core_type
@@ -41,7 +41,7 @@ val transl_type_scheme:
 val reset_type_variables: unit -> unit
 val type_variable: Location.t -> string -> type_expr
 val transl_type_param:
-  Env.t -> Parsetree.type_parameter * Types.layout -> Typedtree.type_parameter
+  Env.t -> (Parsetree.core_type * Asttypes.variance) * Types.layout -> Typedtree.type_parameter
 
 type variable_context
 val narrow: unit -> variable_context

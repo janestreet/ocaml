@@ -79,12 +79,6 @@ and payload =
 
 (* Type expressions *)
 
-and layout =
-    {
-     play_desc: string loc list;
-     play_loc: Location.t;
-    }
-
 and core_type =
     {
      ptyp_desc: core_type_desc;
@@ -130,7 +124,7 @@ and core_type_desc =
            [< `A|`B ]        (flag = Closed; labels = Some [])
            [< `A|`B > `X `Y ](flag = Closed; labels = Some ["X";"Y"])
          *)
-  | Ptyp_poly of newtype list * core_type
+  | Ptyp_poly of string loc list * core_type
         (* 'a1 ... 'an. T
 
            Can only appear in the following context:
@@ -148,8 +142,6 @@ and core_type_desc =
            - As the pld_type field of a label_declaration.
 
            - As a core_type of a Ptyp_object node.
-
-           - As the pval_type of a value_description.
          *)
 
   | Ptyp_package of package_type
@@ -193,9 +185,6 @@ and object_field = {
 and object_field_desc =
   | Otag of label loc * core_type
   | Oinherit of core_type
-
-(* Type binders: (type a : layout) and ('a : layout) . *)
-and newtype = string loc * layout option
 
 (* Patterns *)
 
@@ -378,8 +367,8 @@ and expression_desc =
            for methods (not values). *)
   | Pexp_object of class_structure
         (* object ... end *)
-  | Pexp_newtype of newtype * expression
-        (* fun (type t) -> E and fun (type t : layout) -> E *)
+  | Pexp_newtype of string loc * expression
+        (* fun (type t) -> E *)
   | Pexp_pack of module_expr
         (* (module ME)
 
@@ -437,24 +426,16 @@ and value_description =
 
 (* Type declarations *)
 
-and type_parameter =
-    {
-     ptp_name: string option loc; (* None represents '_' *)
-     ptp_variance: variance;
-     ptp_layout: layout option
-    }
-
 and type_declaration =
     {
      ptype_name: string loc;
-     ptype_params: type_parameter list;
+     ptype_params: (core_type * variance) list;
            (* ('a1,...'an) t; None represents  _*)
      ptype_cstrs: (core_type * core_type * Location.t) list;
            (* ... constraint T1=T1'  ... constraint Tn=Tn' *)
      ptype_kind: type_kind;
      ptype_private: private_flag;   (* = private ... *)
      ptype_manifest: core_type option;  (* = T *)
-     ptype_layout: layout option; (* : L *)
      ptype_attributes: attributes;   (* ... [@@id1] [@@id2] *)
      ptype_loc: Location.t;
     }
@@ -496,7 +477,6 @@ and constructor_declaration =
      pcd_name: string loc;
      pcd_args: constructor_arguments;
      pcd_res: core_type option;
-     pcd_poly: newtype list;
      pcd_loc: Location.t;
      pcd_attributes: attributes; (* C of ... [@id1] [@id2] *)
     }
@@ -517,7 +497,7 @@ and constructor_arguments =
 and type_extension =
     {
      ptyext_path: Longident.t loc;
-     ptyext_params: type_parameter list;
+     ptyext_params: (core_type * variance) list;
      ptyext_constructors: extension_constructor list;
      ptyext_private: private_flag;
      ptyext_loc: Location.t;
@@ -544,7 +524,7 @@ and type_exception =
   }
 
 and extension_constructor_kind =
-    Pext_decl of newtype list * constructor_arguments * core_type option
+    Pext_decl of constructor_arguments * core_type option
       (*
          | C of T1 * ... * Tn     ([T1; ...; Tn], None)
          | C: T0                  ([], Some T0)
@@ -618,7 +598,7 @@ and class_type_field_desc =
 and 'a class_infos =
     {
      pci_virt: virtual_flag;
-     pci_params: type_parameter list;
+     pci_params: (core_type * variance) list;
      pci_name: string loc;
      pci_expr: 'a;
      pci_loc: Location.t;

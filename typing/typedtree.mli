@@ -621,11 +621,12 @@ and value_description =
     }
 
 and type_parameter =
-  { typa_type: core_type;
+  {
+    typa_type: Types.type_expr;
     typa_name: string option loc;
     typa_variance: variance;
-    (* FIXME_layout: is this needed? It's implied by typa_type *)
-    typa_layout: Types.layout }
+    typa_layout: Types.layout
+  }
 
 and type_declaration =
   {

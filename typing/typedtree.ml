@@ -483,10 +483,12 @@ and value_description =
     }
 
 and type_parameter =
-  { typa_type: core_type;
+  {
+    typa_type: type_expr;
     typa_name: string option loc;
     typa_variance: variance;
-    typa_layout: Types.layout }
+    typa_layout: Types.layout
+  }
 
 and type_declaration =
   { typ_id: Ident.t;
