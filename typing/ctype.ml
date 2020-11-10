@@ -2584,7 +2584,9 @@ let rec cmp_layout env may_refine_var may_refine_env ty layout =
     | { type_layout; _ } ->
       (* If that check failed, it might still be OK:
          we need to expand aliases to find out *)
-      match try_expand_head try_expand_once !env ty with
+      (* Use try_expand_head_opt: it's fine to expand private
+         aliases for purposes of checking layout *)
+      match try_expand_head_opt !env ty with
       | ty' ->
         cmp_layout env may_refine_var may_refine_env ty' layout
       | exception Cannot_expand ->
