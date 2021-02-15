@@ -107,11 +107,19 @@ let unit_id_from_name name = Ident.create_persistent name
 let concat_symbol unitname id =
   unitname ^ "__" ^ id
 
-let make_symbol ?(unitname = current_unit.ui_symbol) idopt =
+let suffix_of_loc (loc : Debuginfo.Scoped_location.t) =
+  let fname =
+    (Debuginfo.Scoped_location.to_location loc).loc_start.pos_fname in
+  match String.rindex fname '@' with
+  | exception Not_found -> None
+  | i -> Some (String.sub fname (i+1) (String.length fname - (i + 1)))
+
+let make_symbol ?loc ?(unitname = current_unit.ui_symbol) idopt =
   let prefix = "caml" ^ unitname in
-  match idopt with
-  | None -> prefix
-  | Some id -> concat_symbol prefix id
+  match idopt, Option.bind loc suffix_of_loc with
+  | None, _ -> prefix
+  | Some id, None -> concat_symbol prefix id
+  | Some id, Some l -> concat_symbol prefix id ^ "z@" ^ l
 
 let current_unit_linkage_name () =
   Linkage_name.create (make_symbol ~unitname:current_unit.ui_symbol None)
