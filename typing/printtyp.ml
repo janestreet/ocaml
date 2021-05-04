@@ -485,6 +485,15 @@ let string_of_label = function
   | Labelled s -> s
   | Optional s -> "?"^s
 
+let string_of_arg_mode = function
+  | Alloc_local -> "Alloc_local"
+  | Alloc_heap -> "Alloc_heap"
+
+let string_of_ret_mode = function
+  | Ret_local -> "Ret_local"
+  | Ret_heap -> "Ret_heap"
+  | Ret_curried -> "Ret_curried"
+
 let visited = ref []
 let rec raw_type ppf ty =
   let ty = safe_repr [] ty in
@@ -496,9 +505,10 @@ let rec raw_type ppf ty =
 and raw_type_list tl = raw_list raw_type tl
 and raw_type_desc ppf = function
     Tvar name -> fprintf ppf "Tvar %a" print_name name
-  | Tarrow(l,t1,t2,c) ->
-      fprintf ppf "@[<hov1>Tarrow(\"%s\",@,%a,@,%a,@,%s)@]"
-        (string_of_label l) raw_type t1 raw_type t2
+  | Tarrow(Arrow(l,arg,ret),t1,t2,c) ->
+      fprintf ppf "@[<hov1>Tarrow(Arrow(\"%s\",%s,%s),@,%a,@,%a,@,%s)@]"
+        (string_of_label l) (string_of_arg_mode arg) (string_of_ret_mode ret)
+        raw_type t1 raw_type t2
         (safe_commu_repr [] c)
   | Ttuple tl ->
       fprintf ppf "@[<1>Ttuple@,%a@]" raw_type_list tl
@@ -961,19 +971,38 @@ let rec tree_of_typexp sch ty =
         let non_gen = is_non_gen sch ty in
         let name_gen = if non_gen then new_weak_name ty else new_name in
         Otyp_var (non_gen, name_of_type name_gen ty)
-    | Tarrow(l, ty1, ty2, _) ->
-        let lab =
-          if !print_labels || is_optional l then string_of_label l else ""
+    | Tarrow (kind, arg, ret, _) ->
+        let rec decompose acc_args kind arg ret =
+          match kind, (repr ret).desc with
+          | Arrow(l, marg, Ret_curried), Tarrow(kind', arg', ret', _) ->
+             decompose ((l, marg, arg)::acc_args) kind' arg' ret'
+          | Arrow(l, marg, mret), _ ->
+             let acc_args = List.rev ((l, marg, arg)::acc_args) in
+             acc_args, mret, ret
         in
-        let t1 =
-          if is_optional l then
-            match (repr ty1).desc with
-            | Tconstr(path, [ty], _)
-              when Path.same path Predef.path_option ->
-                tree_of_typexp sch ty
-            | _ -> Otyp_stuff "<hidden>"
-          else tree_of_typexp sch ty1 in
-        Otyp_arrow (lab, t1, tree_of_typexp sch ty2)
+        let args, mret, ret = decompose [] kind arg ret in
+        let args = args |> List.map (fun (l, marg, arg) ->
+          let lab =
+            if !print_labels || is_optional l then string_of_label l else ""
+          in
+          let arg =
+            if is_optional l then
+              match (repr arg).desc with
+              | Tconstr(path, [ty], _)
+                when Path.same path Predef.path_option ->
+                  tree_of_typexp sch ty
+              | _ -> Otyp_stuff "<hidden>"
+            else tree_of_typexp sch arg in
+          match marg with
+          | Alloc_heap -> lab, arg
+          | Alloc_local -> lab, Otyp_attribute (arg, {oattr_name="stack"}))
+        in
+        let ret = tree_of_typexp sch ret in
+        let ty = Otyp_arrow (args, ret) in
+        (match mret with
+        | Ret_heap -> ty
+        | Ret_local -> Otyp_attribute (ty, {oattr_name="stackret"})
+        | Ret_curried -> Otyp_attribute (ty, {oattr_name="miscurried"}))
     | Ttuple tyl ->
         Otyp_tuple (tree_of_typlist sch tyl)
     | Tconstr(p, tyl, _abbrev) ->

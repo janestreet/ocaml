@@ -266,20 +266,18 @@ let rec print_out_type ppf =
       fprintf ppf "@[<hov 2>%a.@ %a@]"
         pr_vars sl
         print_out_type ty
-  | ty ->
-      print_out_type_1 ppf ty
-
-and print_out_type_1 ppf =
-  function
-    Otyp_arrow (lab, ty1, ty2) ->
+  | Otyp_arrow (args, ret) ->
       pp_open_box ppf 0;
-      if lab <> "" then (pp_print_string ppf lab; pp_print_char ppf ':');
-      print_out_type_2 ppf ty1;
-      pp_print_string ppf " ->";
-      pp_print_space ppf ();
-      print_out_type_1 ppf ty2;
-      pp_close_box ppf ()
-  | ty -> print_out_type_2 ppf ty
+      args |> List.iter (fun (lab, ty) ->
+        if lab <> "" then (pp_print_string ppf lab; pp_print_char ppf ':');
+        print_out_type_2 ppf ty;
+        pp_print_string ppf " ->";
+        pp_print_space ppf ());
+      pp_close_box ppf ();
+      print_out_type_2 ppf ret
+  | ty ->
+      print_out_type_2 ppf ty
+
 and print_out_type_2 ppf =
   function
     Otyp_tuple tyl ->

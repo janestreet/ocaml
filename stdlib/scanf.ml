@@ -436,6 +436,10 @@ end
 
 type ('a, 'b, 'c, 'd) scanner =
      ('a, Scanning.in_channel, 'b, 'c, 'a -> 'd, 'd) format6 -> 'c
+type ('x, 'a, 'b, 'c, 'd) scanner1 =
+     'x -> ('a, Scanning.in_channel, 'b, 'c, 'a -> 'd, 'd) format6 -> 'c
+type ('x, 'y, 'a, 'b, 'c, 'd) scanner2 =
+     'x -> 'y -> ('a, Scanning.in_channel, 'b, 'c, 'a -> 'd, 'd) format6 -> 'c
 
 
 (* Reporting errors. *)
@@ -1502,7 +1506,7 @@ let kscanf ib ef (Format (fmt, str)) =
     | Cons (x, r) -> apply (f x) r
     | Nil -> f
   in
-  let k readers f =
+  let k readers = Sys.opaque_identity @@ fun f ->
     Scanning.reset_token ib;
     match try Args (make_scanf ib fmt readers) with
       | (Scan_failure _ | Failure _ | End_of_file) as exc -> Exc exc

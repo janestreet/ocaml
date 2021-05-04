@@ -148,7 +148,7 @@ let resize indexfun h =
     let ndata = Array.make nsize Empty in
     let inplace = not (ongoing_traversal h) in
     h.data <- ndata;          (* so that indexfun sees the new bucket count *)
-    insert_all_buckets (indexfun h) inplace odata ndata
+    insert_all_buckets (fun k -> indexfun h k) inplace odata ndata
   end
 
 let iter f h =

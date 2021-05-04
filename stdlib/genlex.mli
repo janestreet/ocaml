@@ -61,7 +61,8 @@ type token =
   | String of string
   | Char of char
 
-val make_lexer : string list -> char Stream.t -> token Stream.t
+type 'a id = 'a
+val make_lexer : string list -> (char Stream.t -> token Stream.t) id
 (** Construct the lexer function. The first argument is the list of
    keywords. An identifier [s] is returned as [Kwd s] if [s]
    belongs to this list, and as [Ident s] otherwise.

@@ -66,7 +66,7 @@ and type_desc =
   (** [Tvar (Some "a")] ==> ['a] or ['_a]
       [Tvar None]       ==> [_] *)
 
-  | Tarrow of arg_label * type_expr * type_expr * commutable
+  | Tarrow of arrow_desc * type_expr * type_expr * commutable
   (** [Tarrow (Nolabel,      e1, e2, c)] ==> [e1    -> e2]
       [Tarrow (Labelled "l", e1, e2, c)] ==> [l:e1  -> e2]
       [Tarrow (Optional "l", e1, e2, c)] ==> [?l:e1 -> e2]
@@ -128,6 +128,14 @@ and type_desc =
 
   | Tpackage of Path.t * Longident.t list * type_expr list
   (** Type of a first-class module (a.k.a package). *)
+
+and arrow_desc =
+  Arrow of arg_label * alloc_mode * arrow_ret_mode
+
+and alloc_mode = Alloc_heap | Alloc_local
+
+and arrow_ret_mode =
+  Ret_heap | Ret_local | Ret_curried
 
 (** [  `X | `Y ]       (row_closed = true)
     [< `X | `Y ]       (row_closed = true)
@@ -584,8 +592,6 @@ type label_description =
 val bound_value_identifiers: signature -> Ident.t list
 
 val signature_item_id : signature_item -> Ident.t
-
-type alloc_mode = Alloc_heap | Alloc_local
 
 module Alloc_mode : sig
   type t = alloc_mode = Alloc_heap | Alloc_local

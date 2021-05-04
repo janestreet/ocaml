@@ -236,11 +236,11 @@ let rec find_map f = function
        | None -> find_map f l
      end
 
-let find_all p =
+let find_all p xs =
   let rec find accu = function
   | [] -> rev accu
   | x :: l -> if p x then find (x :: accu) l else find accu l in
-  find []
+  find [] xs
 
 let filter = find_all
 
@@ -251,7 +251,7 @@ let filteri p l =
   in
   aux 0 [] l
 
-let filter_map f =
+let filter_map f xs =
   let rec aux accu = function
     | [] -> rev accu
     | x :: l ->
@@ -259,7 +259,7 @@ let filter_map f =
         | None -> aux accu l
         | Some v -> aux (v :: accu) l
   in
-  aux []
+  aux [] xs
 
 let concat_map f l =
   let rec aux f acc = function

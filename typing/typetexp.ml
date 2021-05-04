@@ -198,6 +198,20 @@ and transl_type_aux env policy styp =
     in
     ctyp (Ttyp_var name) ty
   | Ptyp_arrow(l, st1, st2) ->
+    let get_attr a st =
+      List.find_opt (fun at -> at.attr_name.txt = a) st.ptyp_attributes in
+    let arg_mode =
+      match get_attr "stack" st1 with
+      | None -> Alloc_heap
+      | Some _ -> Alloc_local in
+    let ret_mode, st2 =
+      match get_attr "stackret" st2, st2.ptyp_desc with
+      | None, Ptyp_arrow _ -> Ret_curried, st2
+      | Some r, Ptyp_arrow _ ->
+         Ret_curried, { st2 with ptyp_attributes = r :: st2.ptyp_attributes }
+      | None, _ -> Ret_heap, st2
+      | Some _, _ -> Ret_local, st2
+    in
     let cty1 = transl_type env policy st1 in
     let cty2 = transl_type env policy st2 in
     let ty1 = cty1.ctyp_type in
@@ -205,7 +219,8 @@ and transl_type_aux env policy styp =
       if Btype.is_optional l
       then newty (Tconstr(Predef.path_option,[ty1], ref Mnil))
       else ty1 in
-    let ty = newty (Tarrow(l, ty1, cty2.ctyp_type, Cok)) in
+    let ty = newty (Tarrow(Arrow(l,arg_mode,ret_mode),
+                           ty1, cty2.ctyp_type, Cok)) in
     ctyp (Ttyp_arrow (l, cty1, cty2)) ty
   | Ptyp_tuple stl ->
     assert (List.length stl >= 2);

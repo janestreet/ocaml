@@ -1355,7 +1355,7 @@ and ikfprintf k ppf (Format (fmt, _)) =
 let ifprintf _ppf (Format (fmt, _)) =
   make_iprintf ignore () fmt
 
-let fprintf ppf = kfprintf ignore ppf
+let fprintf ppf fmt = kfprintf ignore ppf fmt
 let printf fmt = fprintf std_formatter fmt
 let eprintf fmt = fprintf err_formatter fmt
 

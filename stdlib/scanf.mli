@@ -229,6 +229,11 @@ type ('a, 'b, 'c, 'd) scanner =
     @since 3.10.0
 *)
 
+type ('x, 'a, 'b, 'c, 'd) scanner1 =
+     'x -> ('a, Scanning.in_channel, 'b, 'c, 'a -> 'd, 'd) format6 -> 'c
+type ('x, 'y, 'a, 'b, 'c, 'd) scanner2 =
+     'x -> 'y -> ('a, Scanning.in_channel, 'b, 'c, 'a -> 'd, 'd) format6 -> 'c
+
 exception Scan_failure of string
 (** When the input can not be read according to the format string
     specification, formatted input functions typically raise exception
@@ -237,7 +242,7 @@ exception Scan_failure of string
 
 (** {1 The general formatted input function} *)
 
-val bscanf : Scanning.in_channel -> ('a, 'b, 'c, 'd) scanner
+val bscanf : (Scanning.in_channel, 'a, 'b, 'c, 'd) scanner1
 
 (** [bscanf ic fmt r1 ... rN f] reads characters from the
     {!Scanning.in_channel} formatted input channel [ic] and converts them to
@@ -466,7 +471,7 @@ val bscanf : Scanning.in_channel -> ('a, 'b, 'c, 'd) scanner
 
 (** {1 Specialised formatted input functions} *)
 
-val sscanf : string -> ('a, 'b, 'c, 'd) scanner
+val sscanf : (string, 'a, 'b, 'c, 'd) scanner1
 (** Same as {!Scanf.bscanf}, but reads from the given string. *)
 
 val scanf : ('a, 'b, 'c, 'd) scanner
@@ -475,8 +480,8 @@ val scanf : ('a, 'b, 'c, 'd) scanner
 *)
 
 val kscanf :
-  Scanning.in_channel -> (Scanning.in_channel -> exn -> 'd) ->
-    ('a, 'b, 'c, 'd) scanner
+  (Scanning.in_channel, (Scanning.in_channel -> exn -> 'd),
+    'a, 'b, 'c, 'd) scanner2
 (** Same as {!Scanf.bscanf}, but takes an additional function argument
     [ef] that is called in case of error: if the scanning process or
     some conversion fails, the scanning function aborts and calls the
@@ -485,8 +490,8 @@ val kscanf :
 *)
 
 val ksscanf :
-  string -> (Scanning.in_channel -> exn -> 'd) ->
-    ('a, 'b, 'c, 'd) scanner
+  (string, (Scanning.in_channel -> exn -> 'd),
+    'a, 'b, 'c, 'd) scanner2
 (** Same as {!Scanf.kscanf} but reads from the given string.
     @since 4.02.0 *)
 
@@ -537,7 +542,7 @@ val unescaped : string -> string
 
 (** {1 Deprecated} *)
 
-val fscanf : Stdlib.in_channel -> ('a, 'b, 'c, 'd) scanner
+val fscanf : (Stdlib.in_channel, 'a, 'b, 'c, 'd) scanner1
   [@@ocaml.deprecated "Use Scanning.from_channel then Scanf.bscanf."]
 (** @deprecated [Scanf.fscanf] is error prone and deprecated since 4.03.0.
 
@@ -553,7 +558,7 @@ val fscanf : Stdlib.in_channel -> ('a, 'b, 'c, 'd) scanner
 *)
 
 val kfscanf :
-  Stdlib.in_channel -> (Scanning.in_channel -> exn -> 'd) ->
-    ('a, 'b, 'c, 'd) scanner
+  (Stdlib.in_channel, (Scanning.in_channel -> exn -> 'd),
+    'a, 'b, 'c, 'd) scanner2
   [@@ocaml.deprecated "Use Scanning.from_channel then Scanf.kscanf."]
 (** @deprecated [Scanf.kfscanf] is error prone and deprecated since 4.03.0. *)

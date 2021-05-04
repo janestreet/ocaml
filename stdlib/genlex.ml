@@ -20,7 +20,7 @@ type token =
   | Float of float
   | String of string
   | Char of char
-
+type 'a id = 'a
 (* The string buffering machinery *)
 
 let initial_buffer = Bytes.create 32

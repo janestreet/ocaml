@@ -157,7 +157,7 @@ module Array0 = struct
   let create kind layout =
     Genarray.create kind layout [||]
   let get arr = Genarray.get arr [||]
-  let set arr = Genarray.set arr [||]
+  let set arr x = Genarray.set arr [||] x
   external kind: ('a, 'b, 'c) t -> ('a, 'b) kind = "caml_ba_kind"
   external layout: ('a, 'b, 'c) t -> 'c layout = "caml_ba_layout"
 

@@ -331,8 +331,8 @@ and ('a1, 'b1, 'c1, 'd1, 'e1, 'f1,
   | Alpha_ty :                                                (* %a  *)
       ('a1, 'b1, 'c1, 'd1, 'e1, 'f1,
        'a2, 'b2, 'c2, 'd2, 'e2, 'f2) fmtty_rel ->
-      (('b1 -> 'x -> 'c1) -> 'x -> 'a1, 'b1, 'c1, 'd1, 'e1, 'f1,
-       ('b2 -> 'x -> 'c2) -> 'x -> 'a2, 'b2, 'c2, 'd2, 'e2, 'f2) fmtty_rel
+      (('b1 -> 'x -> 'c1) -> ('x -> 'a1) id, 'b1, 'c1, 'd1, 'e1, 'f1,
+       ('b2 -> 'x -> 'c2) -> ('x -> 'a2) id, 'b2, 'c2, 'd2, 'e2, 'f2) fmtty_rel
   | Theta_ty :                                                (* %t  *)
       ('a1, 'b1, 'c1, 'd1, 'e1, 'f1,
        'a2, 'b2, 'c2, 'd2, 'e2, 'f2) fmtty_rel ->
@@ -361,6 +361,8 @@ and ('a1, 'b1, 'c1, 'd1, 'e1, 'f1,
        'f2, 'b2, 'c2, 'd2, 'd2, 'f2) fmtty_rel
 
 (***)
+
+and 'a id = 'a
 
 (* List of format elements. *)
 and ('a, 'b, 'c, 'd, 'e, 'f) fmt =
@@ -424,7 +426,7 @@ and ('a, 'b, 'c, 'd, 'e, 'f) fmt =
   (* Printf and Format specific constructor. *)
   | Alpha :                                                  (* %a *)
       ('a, 'b, 'c, 'd, 'e, 'f) fmt ->
-        (('b -> 'x -> 'c) -> 'x -> 'a, 'b, 'c, 'd, 'e, 'f) fmt
+        (('b -> 'x -> 'c) -> ('x -> 'a) id, 'b, 'c, 'd, 'e, 'f) fmt
   | Theta :                                                  (* %t *)
       ('a, 'b, 'c, 'd, 'e, 'f) fmt ->
         (('b -> 'c) -> 'a, 'b, 'c, 'd, 'e, 'f) fmt

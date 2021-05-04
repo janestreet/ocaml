@@ -329,7 +329,7 @@ let inherits cla vals virt_meths concr_meths (_, super, _, env) top =
 
 let make_class pub_meths class_init =
   let table = create_table pub_meths in
-  let env_init = class_init table in
+  let env_init x = class_init table x in
   init_class table;
   (env_init (Obj.repr 0), class_init, env_init, Obj.repr 0)
 
@@ -344,7 +344,8 @@ let make_class_store pub_meths class_init init_table =
 
 let dummy_class loc =
   let undef = fun _ -> raise (Undefined_recursive_module loc) in
-  (Obj.magic undef, undef, undef, Obj.repr 0)
+  let undef2 _ _ = undef () in
+  (Obj.magic undef, undef2, undef, Obj.repr 0)
 
 (**** Objects ****)
 
