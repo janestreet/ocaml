@@ -234,7 +234,7 @@ let constant f = function
   | Pconst_integer (i, Some m) ->
       paren (first_is '-' i) (fun f (i, m) -> pp f "%s%c" i m) f (i,m)
   | Pconst_float (i, None) ->
-      paren (first_is '-' i) (fun f -> pp f "%s") f i
+      paren (first_is '-' i) (fun f s -> pp f "%s" s) f i
   | Pconst_float (i, Some m) ->
       paren (first_is '-' i) (fun f (i,m) -> pp f "%s%c" i m) f (i,m)
 
@@ -495,7 +495,7 @@ and simple_pattern ctxt (f:Format.formatter) (x:pattern) : unit =
         | Ppat_construct (({txt=Lident ("()"|"[]");_}), _) -> false
         | _ -> true in
         pp f "@[<2>%a.%a @]" longident_loc lid
-          (paren with_paren @@ pattern1 ctxt) p
+          (paren with_paren (pattern1 ctxt)) p
     | _ -> paren true (pattern ctxt) f x
 
 and label_exp ctxt f (l,opt,p) =

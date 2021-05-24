@@ -125,7 +125,7 @@ let list i f ppf l =
   | [] -> line i ppf "[]\n";
   | _ :: _ ->
      line i ppf "[\n";
-     List.iter (f (i+1) ppf) l;
+     List.iter (fun x -> f (i+1) ppf x) l;
      line i ppf "]\n";
 ;;
 

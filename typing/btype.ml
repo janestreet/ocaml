@@ -29,7 +29,7 @@ module TypeHash = Hashtbl.Make(TypeOps)
 (**** Forward declarations ****)
 
 let print_raw =
-  ref (fun _ -> assert false : Format.formatter -> type_expr -> unit)
+  ref (fun _ _ -> assert false : Format.formatter -> type_expr -> unit)
 
 (**** Type level management ****)
 

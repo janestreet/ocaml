@@ -122,7 +122,7 @@ module Unification_trace = struct
   let flatten_desc f x = match x.expanded with
     | None -> f x.t x.t
     | Some expanded -> f x.t expanded
-  let flatten f = map (flatten_desc f)
+  let flatten f x = map (flatten_desc f) x
 
   (* Permute the expected and actual values *)
   let swap_diff x = { got = x.expected; expected = x.got }
@@ -2425,7 +2425,7 @@ and mcomp_variant_description type_pairs env xs ys =
   in
   iter xs ys
 
-and mcomp_record_description type_pairs env =
+and mcomp_record_description type_pairs env x y =
   let rec iter x y =
     match x, y with
     | l1 :: xs, l2 :: ys ->
@@ -2437,7 +2437,7 @@ and mcomp_record_description type_pairs env =
     | [], [] -> ()
     | _ -> raise (Unify [])
   in
-  iter
+  iter x y
 
 let mcomp env t1 t2 =
   mcomp (TypePairs.create 4) env t1 t2
