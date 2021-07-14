@@ -417,6 +417,9 @@ module E = struct
         sequence ~loc ~attrs (sub.expr sub e1) (sub.expr sub e2)
     | Pexp_while (e1, e2) ->
         while_ ~loc ~attrs (sub.expr sub e1) (sub.expr sub e2)
+    | Pexp_list_comprehension (e1, p, e2, e3, d) ->
+        list_comprehension ~loc ~attrs (sub.expr sub e1) (sub.pat sub p) 
+          (sub.expr sub e2) (sub.expr sub e3) d
     | Pexp_for (p, e1, e2, d, e3) ->
         for_ ~loc ~attrs (sub.pat sub p) (sub.expr sub e1) (sub.expr sub e2) d
           (sub.expr sub e3)
