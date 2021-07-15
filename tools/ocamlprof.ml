@@ -259,6 +259,7 @@ and rw_exp iflag sexp =
     then insert_profile rw_exp sbody
     else rewrite_exp iflag sbody
   | Pexp_list_comprehension (_, _, _, _, _) -> assert false  
+  | Pexp_list_comprehension_in (_, _, _) -> assert false
   | Pexp_for(_, slow, shigh, _, sbody) ->
     rewrite_exp iflag slow;
     rewrite_exp iflag shigh;

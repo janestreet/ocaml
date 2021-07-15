@@ -596,6 +596,31 @@ let split_cases env cases =
     | vp, ep -> add_case vals case vp, add_case exns case ep
   ) cases ([], [])
 
+let remove_list_type ~loc ~env ty =
+  begin_def ();
+  let no_list_ty = Ctype.newvar ()  in
+  let list_ty = instance (Predef.type_list no_list_ty) in
+  unify_exp_types loc env list_ty (instance ty);
+  end_def();
+  generalize_structure no_list_ty; 
+  no_list_ty
+  
+let new_for_env ~loc ~env ~param ty= 
+match param.ppat_desc with
+| Ppat_any -> Ident.create_local "_for", env
+| Ppat_var {txt} ->
+    Env.enter_value txt
+      {val_type = instance ty;
+        val_attributes = [];
+        val_kind = Val_reg;
+        val_loc = loc;
+        val_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
+      } env
+      ~check:(fun s -> Warnings.Unused_for_index s)
+| _ ->
+    raise (Error (param.ppat_loc, env, Invalid_for_loop_index))
+
+
 (* Type paths *)
 
 let rec expand_path env p =
@@ -2156,6 +2181,7 @@ let rec is_nonexpansive exp =
   | Texp_setfield _
   | Texp_while _
   | Texp_list_comprehension _
+  | Texp_list_comprehension_in _ 
   | Texp_for _
   | Texp_send _
   | Texp_instvar _
@@ -2367,7 +2393,8 @@ let check_partial_application statement exp =
             | Texp_ident _ | Texp_constant _ | Texp_tuple _
             | Texp_construct _ | Texp_variant _ | Texp_record _
             | Texp_field _ | Texp_setfield _ | Texp_array _
-            | Texp_while _ | Texp_list_comprehension _ | Texp_for _ 
+            | Texp_while _ | Texp_list_comprehension _ 
+            | Texp_list_comprehension_in _ | Texp_for _ 
             | Texp_instvar _|  Texp_setinstvar _ | Texp_override _ 
             | Texp_assert _ | Texp_lazy _ | Texp_object _ | Texp_pack _ 
             | Texp_unreachable | Texp_extension_constructor _ 
@@ -3074,27 +3101,8 @@ and type_expect_
           (mk_expected ~explanation:For_loop_start_index Predef.type_int) in
       let high = type_expect env shigh
           (mk_expected ~explanation:For_loop_stop_index Predef.type_int) in
-      let id, new_env =
-        match param.ppat_desc with
-        | Ppat_any -> Ident.create_local "_for", env
-        | Ppat_var {txt} ->
-            Env.enter_value txt
-              {val_type = instance Predef.type_int;
-               val_attributes = [];
-               val_kind = Val_reg;
-               val_loc = loc;
-               val_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
-              } env
-              ~check:(fun s -> Warnings.Unused_for_index s)
-        | _ ->
-            raise (Error (param.ppat_loc, env, Invalid_for_loop_index))
-      in
-      begin_def ();
-      let ty = Ctype.newvar ()  in
-      let list_ty = instance (Predef.type_list ty) in
-      unify_exp_types loc env list_ty (instance ty_expected);
-      end_def();
-      generalize_structure ty;
+      let id, new_env = new_for_env ~loc ~env ~param  Predef.type_int in
+      let ty = remove_list_type ~loc ~env ty_expected in
       let body = type_expect new_env sbody (mk_expected ty) in
       re {
         exp_desc = Texp_list_comprehension(id, body, param, low, high, dir);
@@ -3102,26 +3110,25 @@ and type_expect_
         exp_type = instance (Predef.type_list body.exp_type);
         exp_attributes = sexp.pexp_attributes;
         exp_env = env }
+  | Pexp_list_comprehension_in (sbody, param, siter) ->
+    let iter = type_exp env siter in
+    let no_list_iter_ty = remove_list_type ~loc ~env  iter.exp_type in
+    let id, new_env = new_for_env ~loc ~env ~param  no_list_iter_ty
+    in
+    let ty = remove_list_type ~loc ~env ty_expected in
+    let body = type_expect new_env sbody (mk_expected ty) in
+    re {
+      exp_desc = Texp_list_comprehension_in(id, body, param, iter);
+      exp_loc = loc; exp_extra = [];
+      exp_type = instance (Predef.type_list body.exp_type);
+      exp_attributes = sexp.pexp_attributes;
+      exp_env = env }
   | Pexp_for(param, slow, shigh, dir, sbody) ->
       let low = type_expect env slow
           (mk_expected ~explanation:For_loop_start_index Predef.type_int) in
       let high = type_expect env shigh
           (mk_expected ~explanation:For_loop_stop_index Predef.type_int) in
-      let id, new_env =
-        match param.ppat_desc with
-        | Ppat_any -> Ident.create_local "_for", env
-        | Ppat_var {txt} ->
-            Env.enter_value txt
-              {val_type = instance Predef.type_int;
-               val_attributes = [];
-               val_kind = Val_reg;
-               val_loc = loc;
-               val_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
-              } env
-              ~check:(fun s -> Warnings.Unused_for_index s)
-        | _ ->
-            raise (Error (param.ppat_loc, env, Invalid_for_loop_index))
-      in
+      let id, new_env = new_for_env ~loc ~env ~param  Predef.type_int in
       let body = type_statement ~explanation:For_loop_body new_env sbody in
       rue {
         exp_desc = Texp_for(id, param, low, high, dir, body);

@@ -461,6 +461,7 @@ let expression sub exp =
       Pexp_list_comprehension (
           sub.expr sub exp1, name, sub.expr sub exp2,
           sub.expr sub exp3, dir)  
+    | Texp_list_comprehension_in _ -> assert false
     | Texp_for (_id, name, exp1, exp2, dir, exp3) ->
         Pexp_for (name,
           sub.expr sub exp1, sub.expr sub exp2,

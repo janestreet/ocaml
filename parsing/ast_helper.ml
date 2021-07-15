@@ -195,6 +195,8 @@ module Exp = struct
   let while_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_while (a, b))
   let list_comprehension ?loc ?attrs a b c d e 
         = mk ?loc ?attrs (Pexp_list_comprehension (a, b, c, d, e))
+  let list_comprehension_in ?loc ?attrs a b c
+        = mk ?loc ?attrs (Pexp_list_comprehension_in (a, b, c))
   let for_ ?loc ?attrs a b c d e = mk ?loc ?attrs (Pexp_for (a, b, c, d, e))
   let constraint_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_constraint (a, b))
   let coerce ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_coerce (a, b, c))

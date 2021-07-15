@@ -156,6 +156,8 @@ module Exp:
     val list_comprehension: ?loc:loc -> ?attrs:attrs -> expression -> pattern
                             -> expression -> expression -> direction_flag  
                             -> expression
+    val list_comprehension_in: ?loc:loc -> ?attrs:attrs -> expression -> pattern
+                          -> expression -> expression
     val ifthenelse: ?loc:loc -> ?attrs:attrs -> expression -> expression
                     -> expression option -> expression
     val sequence: ?loc:loc -> ?attrs:attrs -> expression -> expression

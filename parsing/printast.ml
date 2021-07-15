@@ -336,6 +336,11 @@ and expression i ppf x =
       pattern i ppf p;
       expression i ppf e2;
       expression i ppf e3;
+  | Pexp_list_comprehension_in (e1, p, e2) ->  
+    line i ppf "Pexp_list_comprehension_in\n" ;
+      expression i ppf e1;
+      pattern i ppf p;
+      expression i ppf e2;
   | Pexp_for (p, e1, e2, df, e3) ->
       line i ppf "Pexp_for %a\n" fmt_direction_flag df;
       pattern i ppf p;

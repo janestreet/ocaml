@@ -387,6 +387,7 @@ and expression i ppf x =
     expression i ppf e1;
     expression i ppf e2;
     expression i ppf e3;
+  | Texp_list_comprehension_in _ -> assert false  
   | Texp_for (s, _, e1, e2, df, e3) ->
       line i ppf "Texp_for \"%a\" %a\n" fmt_ident s fmt_direction_flag df;
       expression i ppf e1;

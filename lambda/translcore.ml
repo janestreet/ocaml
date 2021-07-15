@@ -158,6 +158,8 @@ let list_comp_prim dir=
     | Upto -> m "map_from_to"
     | Downto -> m "map_from_downto" 
 
+let list_comp_in_prim () = Lambda.transl_prim "CamlinternalComprehension" "map"
+
 (* Insertion of debugging events *)
 
 let event_before ~scopes exp lam =
@@ -466,6 +468,22 @@ and transl_exp0 ~in_new_scope ~scopes e =
       ap_args=[
         fn; transl_exp ~scopes  low;
         transl_exp ~scopes  high];
+      ap_tailcall=Default_tailcall;
+      ap_inlined=Default_inline;
+      ap_specialised=Default_specialise;
+    }
+  | Texp_list_comprehension_in (param, body, _, rhs) -> 
+    let fn = Lfunction {kind = Curried;
+                        params= [param, Pgenval];
+                        return = Pgenval;
+                        attr = default_function_attribute;
+                        loc = Loc_unknown;
+                        body = transl_exp ~scopes  body} in
+    Lapply{
+      ap_loc=Loc_unknown;
+      ap_func=list_comp_in_prim ();
+      ap_args=[
+      fn; transl_exp ~scopes rhs];
       ap_tailcall=Default_tailcall;
       ap_inlined=Default_inline;
       ap_specialised=Default_specialise;

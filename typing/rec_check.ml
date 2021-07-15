@@ -178,6 +178,7 @@ let classify_expression : Typedtree.expression -> sd =
         Dynamic
 
     | Texp_list_comprehension _
+    | Texp_list_comprehension_in _  
     | Texp_for _
     | Texp_constant _
     | Texp_new _
@@ -548,6 +549,7 @@ let rec expression : Typedtree.expression -> term_judg =
         expression high << Dereference;
         
       ]
+    | Texp_list_comprehension_in _ -> assert false 
     | Texp_for (_, _, low, high, _, body) ->
       (*
         G1 |- low: m[Dereference]

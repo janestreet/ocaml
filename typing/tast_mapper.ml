@@ -319,6 +319,7 @@ let expr sub x =
           sub.expr sub exp3,
           dir
         )
+    | Texp_list_comprehension_in _ -> assert false 
     | Texp_for (id, p, exp1, exp2, dir, exp3) ->
         Texp_for (
           id,

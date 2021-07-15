@@ -232,6 +232,7 @@ let expr sub {exp_extra; exp_desc; exp_env; _} =
     sub.expr sub exp1;
     sub.expr sub exp2;
     sub.expr sub exp3
+  | Texp_list_comprehension_in _ -> assert false 
   | Texp_for (_, _, exp1, exp2, _, exp3) ->
       sub.expr sub exp1;
       sub.expr sub exp2;

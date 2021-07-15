@@ -2379,6 +2379,9 @@ simple_expr:
   | LBRACKET simple_expr FOR ext_attributes pattern
       EQUAL seq_expr direction_flag seq_expr RBRACKET
       { Pexp_list_comprehension($2, $5, $7, $9, $8) }
+  | LBRACKET simple_expr FOR ext_attributes pattern
+      IN simple_expr RBRACKET
+      { Pexp_list_comprehension_in($2, $5, $7) }
   | od=open_dot_declaration DOT LBRACKET expr_semi_list RBRACKET
       { let list_exp =
           (* TODO: review the location of list_exp *)
