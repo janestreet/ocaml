@@ -331,13 +331,8 @@ and expression_desc =
         (* E1; E2 *)
   | Pexp_while of expression * expression
         (* while E1 do E2 done *)
-  | Pexp_list_comprehension of  
-        (*[ E1 for i = E2 to E3 ]      (flag = Upto)
-          [ E1 for i = E2 downto E3 ]  (flag = downto)*)
-      expression * pattern * expression * expression * direction_flag
-  | Pexp_list_comprehension_in of  
-        (*[ E1 for i in E3 ]      *)
-      expression * pattern * expression
+  | Pexp_list_comprehension of expression * comprehension
+  | Pexp_arr_comprehension of  expression * comprehension
   | Pexp_for of
       pattern *  expression * expression * direction_flag * expression
         (* for i = E1 to E2 do E3 done      (flag = Upto)
@@ -392,7 +387,12 @@ and expression_desc =
         (* [%id] *)
   | Pexp_unreachable
         (* . *)
-
+and comprehension = 
+  (*[ body for i = E2 to E3 ]      (flag = Upto)
+    [ body for i = E2 downto E3 ]  (flag = downto)*)
+  | From_to of pattern * expression * expression * direction_flag
+  (*[ body for i in E3 ]      *)
+  | In of pattern * expression
 and case =   (* (P -> E) or (P when E0 -> E) *)
     {
      pc_lhs: pattern;

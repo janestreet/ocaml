@@ -596,16 +596,16 @@ let split_cases env cases =
     | vp, ep -> add_case vals case vp, add_case exns case ep
   ) cases ([], [])
 
-let remove_list_type ~loc ~env ty =
+let remove_type ~loc ~env ~remove ty =
   begin_def ();
-  let no_list_ty = Ctype.newvar ()  in
-  let list_ty = instance (Predef.type_list no_list_ty) in
-  unify_exp_types loc env list_ty (instance ty);
+  let removed_ty = Ctype.newvar ()  in
+  unify_exp_types loc env 
+    (instance (remove removed_ty)) (instance ty);
   end_def();
-  generalize_structure no_list_ty; 
-  no_list_ty
+  generalize_structure removed_ty; 
+  removed_ty
   
-let new_for_env ~loc ~env ~param ty= 
+let new_for_loop_env ~loc ~env ~param ty= 
 match param.ppat_desc with
 | Ppat_any -> Ident.create_local "_for", env
 | Ppat_var {txt} ->
@@ -619,6 +619,7 @@ match param.ppat_desc with
       ~check:(fun s -> Warnings.Unused_for_index s)
 | _ ->
     raise (Error (param.ppat_loc, env, Invalid_for_loop_index))
+
 
 
 (* Type paths *)
@@ -2181,7 +2182,7 @@ let rec is_nonexpansive exp =
   | Texp_setfield _
   | Texp_while _
   | Texp_list_comprehension _
-  | Texp_list_comprehension_in _ 
+  | Texp_arr_comprehension _  
   | Texp_for _
   | Texp_send _
   | Texp_instvar _
@@ -2393,8 +2394,8 @@ let check_partial_application statement exp =
             | Texp_ident _ | Texp_constant _ | Texp_tuple _
             | Texp_construct _ | Texp_variant _ | Texp_record _
             | Texp_field _ | Texp_setfield _ | Texp_array _
-            | Texp_while _ | Texp_list_comprehension _ 
-            | Texp_list_comprehension_in _ | Texp_for _ 
+            | Texp_while _ | Texp_list_comprehension _
+            | Texp_arr_comprehension _ | Texp_for _ 
             | Texp_instvar _|  Texp_setinstvar _ | Texp_override _ 
             | Texp_assert _ | Texp_lazy _ | Texp_object _ | Texp_pack _ 
             | Texp_unreachable | Texp_extension_constructor _ 
@@ -3096,39 +3097,23 @@ and type_expect_
         exp_type = instance Predef.type_unit;
         exp_attributes = sexp.pexp_attributes;
         exp_env = env }
-  | Pexp_list_comprehension(sbody, param, slow, shigh, dir) ->  
-      let low = type_expect env slow
-          (mk_expected ~explanation:For_loop_start_index Predef.type_int) in
-      let high = type_expect env shigh
-          (mk_expected ~explanation:For_loop_stop_index Predef.type_int) in
-      let id, new_env = new_for_env ~loc ~env ~param  Predef.type_int in
-      let ty = remove_list_type ~loc ~env ty_expected in
-      let body = type_expect new_env sbody (mk_expected ty) in
-      re {
-        exp_desc = Texp_list_comprehension(id, body, param, low, high, dir);
-        exp_loc = loc; exp_extra = [];
-        exp_type = instance (Predef.type_list body.exp_type);
-        exp_attributes = sexp.pexp_attributes;
-        exp_env = env }
-  | Pexp_list_comprehension_in (sbody, param, siter) ->
-    let iter = type_exp env siter in
-    let no_list_iter_ty = remove_list_type ~loc ~env  iter.exp_type in
-    let id, new_env = new_for_env ~loc ~env ~param  no_list_iter_ty
-    in
-    let ty = remove_list_type ~loc ~env ty_expected in
-    let body = type_expect new_env sbody (mk_expected ty) in
-    re {
-      exp_desc = Texp_list_comprehension_in(id, body, param, iter);
-      exp_loc = loc; exp_extra = [];
-      exp_type = instance (Predef.type_list body.exp_type);
-      exp_attributes = sexp.pexp_attributes;
-      exp_env = env }
+  | Pexp_list_comprehension (sbody, comp_type) ->  
+    comprehension ~loc ~env ~sexp ~ty_expected 
+        ~container_type:Predef.type_list
+        ~sbody ~comp_type
+        ~texp:(fun id body comp_type -> 
+            Texp_list_comprehension (id, body, comp_type))
+  | Pexp_arr_comprehension (sbody, comp_type) -> 
+    comprehension ~loc ~env ~sexp ~ty_expected
+        ~container_type:Predef.type_array ~sbody ~comp_type
+        ~texp:(fun id body comp_type -> 
+           Texp_arr_comprehension(id, body, comp_type))
   | Pexp_for(param, slow, shigh, dir, sbody) ->
       let low = type_expect env slow
           (mk_expected ~explanation:For_loop_start_index Predef.type_int) in
       let high = type_expect env shigh
           (mk_expected ~explanation:For_loop_stop_index Predef.type_int) in
-      let id, new_env = new_for_env ~loc ~env ~param  Predef.type_int in
+      let id, new_env = new_for_loop_env ~loc ~env ~param  Predef.type_int in
       let body = type_statement ~explanation:For_loop_body new_env sbody in
       rue {
         exp_desc = Texp_for(id, param, low, high, dir, body);
@@ -5130,6 +5115,40 @@ and type_andops env sarg sands expected_ty =
   let let_arg, rev_ands = loop env sarg (List.rev sands) expected_ty in
   let_arg, List.rev rev_ands
 
+and comprehension ~loc ~env ~sexp ~ty_expected ~container_type 
+                  ~sbody ~(comp_type : Parsetree.comprehension) ~texp = 
+  let from_to_comprehension param slow shigh dir =
+    let low = type_expect env slow
+        (mk_expected ~explanation:For_loop_start_index Predef.type_int) in
+    let high = type_expect env shigh
+        (mk_expected ~explanation:For_loop_stop_index Predef.type_int) in
+    let id, new_env = new_for_loop_env ~loc ~env ~param  Predef.type_int in
+    let ty = remove_type ~loc ~env ~remove:container_type ty_expected in
+    let body = type_expect new_env sbody (mk_expected ty) in
+    re {
+      exp_desc = texp id body (From_to(param, low, high, dir));
+      exp_loc = loc; exp_extra = [];
+      exp_type = instance (container_type body.exp_type);
+      exp_attributes = sexp.pexp_attributes;
+      exp_env = env }
+  in
+  let in_comprehension param siter= 
+    let iter = type_exp env siter in
+    let no_list_iter_ty = remove_type ~loc ~env ~remove:container_type  iter.exp_type in
+    let id, new_env = new_for_loop_env ~loc ~env ~param no_list_iter_ty
+    in
+    let ty = remove_type ~loc ~env ~remove:container_type ty_expected in
+    let body = type_expect new_env sbody (mk_expected ty) in
+    re {
+      exp_desc = texp id body (In(param, iter));
+      exp_loc = loc; exp_extra = [];
+      exp_type = instance (container_type body.exp_type);
+      exp_attributes = sexp.pexp_attributes;
+      exp_env = env }
+  in
+  match comp_type  with 
+  | From_to (p,e2,e3, dir) -> from_to_comprehension p e2 e3 dir
+  | In (p, e2) ->  in_comprehension p e2
 (* Typing of toplevel bindings *)
 
 let type_binding env rec_flag spat_sexp_list =

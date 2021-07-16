@@ -121,10 +121,9 @@ and expression_desc =
   | Texp_sequence of expression * expression
   | Texp_while of expression * expression
   | Texp_list_comprehension of 
-      Ident.t * expression * Parsetree.pattern * expression * expression *
-        direction_flag
-  | Texp_list_comprehension_in of 
-      Ident.t * expression * Parsetree.pattern * expression 
+      Ident.t * expression * comprehension
+  | Texp_arr_comprehension of 
+      Ident.t * expression * comprehension
   | Texp_for of
       Ident.t * Parsetree.pattern * expression * expression * direction_flag *
         expression
@@ -155,6 +154,10 @@ and expression_desc =
 and meth =
     Tmeth_name of string
   | Tmeth_val of Ident.t
+
+and comprehension = 
+  | From_to of Parsetree.pattern * expression * expression * direction_flag
+  | In of Parsetree.pattern * expression
 
 and 'k case =
     {

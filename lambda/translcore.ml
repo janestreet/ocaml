@@ -152,13 +152,17 @@ let rec push_defaults loc bindings cases partial =
   | _ ->
       cases
 
-let list_comp_prim dir= 
-  let m input_line= Lambda.transl_prim "CamlinternalComprehension" input_line in
-    match dir with 
-    | Upto -> m "map_from_to"
-    | Downto -> m "map_from_downto" 
+let comprehension_prim ~is_array ~dir= 
+  let prefix = if is_array then "array_" else "" in
+  let fun_name =  prefix ^ 
+  match dir with 
+    | Upto ->  "map_from_to"
+    | Downto -> "map_from_downto"  in
+  Lambda.transl_prim "CamlinternalComprehension" fun_name
 
-let list_comp_in_prim () = Lambda.transl_prim "CamlinternalComprehension" "map"
+let list_comp_in_prim ~is_array = 
+  let prefix = if is_array then "array_" else "" in
+  Lambda.transl_prim "CamlinternalComprehension" (prefix ^ "map")
 
 (* Insertion of debugging events *)
 
@@ -455,35 +459,49 @@ and transl_exp0 ~in_new_scope ~scopes e =
   | Texp_while(cond, body) ->
       Lwhile(transl_exp ~scopes cond,
              event_before ~scopes body (transl_exp ~scopes body))
-  | Texp_list_comprehension(param, body, _, low, high, dir) -> 
+  
+  | Texp_arr_comprehension (param, body, type_comp) -> 
+    let pval, args, func = match type_comp with
+    | From_to (_,e2,e3, dir) -> 
+        Pintval, [transl_exp ~scopes e2; transl_exp ~scopes e3],
+        comprehension_prim ~is_array:true ~dir
+    | In (_, e2) ->  
+        Pgenval, [transl_exp ~scopes e2],
+        list_comp_in_prim ~is_array:true
+    in
     let fn = Lfunction {kind = Curried;
-                        params= [param, Pgenval];
+                        params= [param, pval];
                         return = Pgenval;
                         attr = default_function_attribute;
                         loc = Loc_unknown;
                         body = transl_exp ~scopes  body} in
     Lapply{
-      ap_loc=Loc_unknown;
-      ap_func=list_comp_prim dir;
-      ap_args=[
-        fn; transl_exp ~scopes  low;
-        transl_exp ~scopes  high];
+      ap_loc=Loc_unknown;false
+      ap_func=func;
+      ap_args= fn::args;
       ap_tailcall=Default_tailcall;
       ap_inlined=Default_inline;
       ap_specialised=Default_specialise;
     }
-  | Texp_list_comprehension_in (param, body, _, rhs) -> 
+  | Texp_list_comprehension (param, body, type_comp) -> 
+    let pval, args, func = match type_comp with
+    | From_to (_,e2,e3, dir) -> 
+        Pintval, [transl_exp ~scopes e2; transl_exp ~scopes e3],
+        comprehension_prim ~is_array:false ~dir
+    | In (_, e2) ->  
+        Pgenval, [transl_exp ~scopes e2],
+        list_comp_in_prim ~is_array:false
+    in
     let fn = Lfunction {kind = Curried;
-                        params= [param, Pgenval];
+                        params= [param, pval];
                         return = Pgenval;
                         attr = default_function_attribute;
                         loc = Loc_unknown;
                         body = transl_exp ~scopes  body} in
     Lapply{
       ap_loc=Loc_unknown;
-      ap_func=list_comp_in_prim ();
-      ap_args=[
-      fn; transl_exp ~scopes rhs];
+      ap_func=func;
+      ap_args= fn::args;
       ap_tailcall=Default_tailcall;
       ap_inlined=Default_inline;
       ap_specialised=Default_specialise;
