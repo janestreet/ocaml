@@ -145,7 +145,7 @@ and operation =
           The [exttype list] describes the unboxing types of the arguments.
           An empty list means "all arguments are machine words [XInt]". *)
   | Cload of memory_chunk * Asttypes.mutable_flag
-  | Calloc
+  | Calloc of Lambda.alloc_mode
   | Cstore of memory_chunk * Lambda.initialization_or_assignment
   | Caddi | Csubi | Cmuli | Cmulhi | Cdivi | Cmodi
   | Cand | Cor | Cxor | Clsl | Clsr | Casr
@@ -193,6 +193,7 @@ and expression =
   | Cexit of int * expression list
   | Ctrywith of expression * Backend_var.With_provenance.t * expression
       * Debuginfo.t
+  | Cregion of expression
 
 type codegen_option =
   | Reduce_code_size
@@ -245,6 +246,9 @@ val map_tail: (expression -> expression) -> expression -> expression
       to all inner sub-expressions that can produce the final result.
       Same disclaimer as for [iter_shallow_tail] about the notion
       of "tail" sub-expression. *)
+
+val iter_shallow: (expression -> unit) -> expression -> unit
+  (** Apply the transformation to each immediate sub-expression. *)
 
 val map_shallow: (expression -> expression) -> expression -> expression
   (** Apply the transformation to each immediate sub-expression. *)

@@ -39,6 +39,10 @@ type is_safe =
   | Safe
   | Unsafe
 
+type alloc_mode =
+  | Alloc_heap
+  | Alloc_local
+
 type primitive =
   | Pidentity
   | Pbytes_to_string
@@ -50,7 +54,7 @@ type primitive =
   | Pgetglobal of Ident.t
   | Psetglobal of Ident.t
   (* Operations on heap blocks *)
-  | Pmakeblock of int * mutable_flag * block_shape
+  | Pmakeblock of int * mutable_flag * block_shape * alloc_mode
   | Pfield of int
   | Pfield_computed
   | Psetfield of int * immediate_or_pointer * initialization_or_assignment
@@ -304,6 +308,7 @@ type lambda =
   | Lsend of meth_kind * lambda * lambda * lambda list * scoped_location
   | Levent of lambda * lambda_event
   | Lifused of Ident.t * lambda
+  | Lregion of lambda
 
 and lfunction =
   { kind: function_kind;
@@ -432,6 +437,7 @@ let make_key e =
     | Lifused (id,e) -> Lifused (id,tr_rec env e)
     | Lletrec _|Lfunction _
     | Lfor _ | Lwhile _
+    | Lregion _
 (* Beware: (PR#6412) the event argument to Levent
    may include cyclic structure of type Type.typexpr *)
     | Levent _  ->
@@ -528,6 +534,8 @@ let shallow_iter ~tail ~non_tail:f = function
       tail e
   | Lifused (_v, e) ->
       tail e
+  | Lregion e ->
+      f e
 
 let iter_head_constructor f l =
   shallow_iter ~tail:f ~non_tail:f l
@@ -604,6 +612,8 @@ let rec free_variables = function
       free_variables lam
   | Lifused (_v, e) ->
       (* Shouldn't v be considered a free variable ? *)
+      free_variables e
+  | Lregion e ->
       free_variables e
 
 and free_variables_list set exprs =
@@ -791,6 +801,8 @@ let subst update_env ?(freshen_bound_variables = false) s input_lam =
     | Lifused (id, e) ->
         let id = try Ident.Map.find id l with Not_found -> id in
         Lifused (id, subst s l e)
+    | Lregion e ->
+        Lregion (subst s l e)
   and subst_list s l li = List.map (subst s l) li
   and subst_decl s l (id, exp) = (id, subst s l exp)
   and subst_case s l (key, case) = (key, subst s l case)
@@ -874,6 +886,8 @@ let shallow_map f = function
       Levent (f l, ev)
   | Lifused (v, e) ->
       Lifused (v, f e)
+  | Lregion e ->
+      Lregion (f e)
 
 let map f =
   let rec g lam = f (shallow_map g lam) in

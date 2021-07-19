@@ -314,10 +314,10 @@ let is_unboxed_number_cmm ~strict cmm =
     r := join_unboxed_number_kind ~strict !r k
   in
   let rec aux = function
-    | Cop(Calloc, [Cconst_natint (hdr, _); _], dbg)
+    | Cop(Calloc _, [Cconst_natint (hdr, _); _], dbg)
       when Nativeint.equal hdr float_header ->
         notify (Boxed (Boxed_float dbg, false))
-    | Cop(Calloc, [Cconst_natint (hdr, _); Cconst_symbol (ops, _); _], dbg) ->
+    | Cop(Calloc _, [Cconst_natint (hdr, _); Cconst_symbol (ops, _); _], dbg) ->
         if Nativeint.equal hdr boxedintnat_header
         && String.equal ops caml_nativeint_ops
         then
@@ -459,8 +459,8 @@ let rec transl env e =
           Cconst_symbol (sym, dbg)
       | (Pmakeblock _, []) ->
           assert false
-      | (Pmakeblock(tag, _mut, _kind), args) ->
-          make_alloc dbg tag (List.map (transl env) args)
+      | (Pmakeblock(tag, _mut, _kind, mode), args) ->
+          make_alloc ~mode dbg tag (List.map (transl env) args)
       | (Pccall prim, args) ->
           transl_ccall env prim args dbg
       | (Pduparray (kind, _), [Uprim (Pmakearray (kind', _), args, _dbg)]) ->
@@ -672,6 +672,8 @@ let rec transl env e =
   | Uunreachable ->
       let dbg = Debuginfo.none in
       Cop(Cload (Word_int, Mutable), [Cconst_int (0, dbg)], dbg)
+  | Uregion e ->
+      region (transl env e)
 
 and transl_catch env nfail ids body handler dbg =
   let ids = List.map (fun (id, kind) -> (id, kind, ref No_result)) ids in
@@ -850,7 +852,7 @@ and transl_prim_1 env p arg dbg =
     | Paddfloat | Psubfloat | Pmulfloat | Pdivfloat
     | Pstringrefu | Pstringrefs | Pbytesrefu | Pbytessetu
     | Pbytesrefs | Pbytessets | Pisout | Pread_symbol _
-    | Pmakeblock (_, _, _) | Psetfield (_, _, _) | Psetfield_computed (_, _)
+    | Pmakeblock (_, _, _, _) | Psetfield (_, _, _) | Psetfield_computed (_, _)
     | Psetfloatfield (_, _) | Pduprecord (_, _) | Pccall _ | Pdivint _
     | Pmodint _ | Pintcomp _ | Pfloatcomp _ | Pmakearray (_, _)
     | Pcompare_ints | Pcompare_floats | Pcompare_bints _
@@ -1031,7 +1033,8 @@ and transl_prim_2 env p arg1 arg2 dbg =
   | Pnot | Pnegint | Pintoffloat | Pfloatofint | Pnegfloat
   | Pabsfloat | Pstringlength | Pbyteslength | Pbytessetu | Pbytessets
   | Pisint | Pbswap16 | Pint_as_pointer | Popaque | Pread_symbol _
-  | Pmakeblock (_, _, _) | Pfield _ | Psetfield_computed (_, _) | Pfloatfield _
+  | Pmakeblock (_, _, _, _) | Pfield _ | Psetfield_computed (_, _)
+  | Pfloatfield _
   | Pduprecord (_, _) | Pccall _ | Praise _ | Poffsetint _ | Poffsetref _
   | Pmakearray (_, _) | Pduparray (_, _) | Parraylength _ | Parraysetu _
   | Parraysets _ | Pbintofint _ | Pintofbint _ | Pcvtbint (_, _)
@@ -1084,7 +1087,8 @@ and transl_prim_3 env p arg1 arg2 arg3 dbg =
   | Pintoffloat | Pfloatofint | Pnegfloat | Pabsfloat | Paddfloat | Psubfloat
   | Pmulfloat | Pdivfloat | Pstringlength | Pstringrefu | Pstringrefs
   | Pbyteslength | Pbytesrefu | Pbytesrefs | Pisint | Pisout
-  | Pbswap16 | Pint_as_pointer | Popaque | Pread_symbol _ | Pmakeblock (_, _, _)
+  | Pbswap16 | Pint_as_pointer | Popaque | Pread_symbol _
+  | Pmakeblock (_, _, _, _)
   | Pfield _ | Psetfield (_, _, _) | Pfloatfield _ | Psetfloatfield (_, _)
   | Pduprecord (_, _) | Pccall _ | Praise _ | Pdivint _ | Pmodint _ | Pintcomp _
   | Pcompare_ints | Pcompare_floats | Pcompare_bints _

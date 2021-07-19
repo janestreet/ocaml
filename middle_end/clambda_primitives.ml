@@ -33,7 +33,7 @@ type memory_access_size =
 type primitive =
   | Pread_symbol of string
   (* Operations on heap blocks *)
-  | Pmakeblock of int * mutable_flag * block_shape
+  | Pmakeblock of int * mutable_flag * block_shape * Lambda.alloc_mode
   | Pfield of int
   | Pfield_computed
   | Psetfield of int * immediate_or_pointer * initialization_or_assignment

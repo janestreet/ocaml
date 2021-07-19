@@ -155,10 +155,14 @@ let primitive ppf = function
   | Pdirapply -> fprintf ppf "dirapply"
   | Pgetglobal id -> fprintf ppf "global %a" Ident.print id
   | Psetglobal id -> fprintf ppf "setglobal %a" Ident.print id
-  | Pmakeblock(tag, Immutable, shape) ->
-      fprintf ppf "makeblock %i%a" tag block_shape shape
-  | Pmakeblock(tag, Mutable, shape) ->
-      fprintf ppf "makemutable %i%a" tag block_shape shape
+  | Pmakeblock(tag, mut, shape, mode) ->
+      let kind =
+        match mut, mode with
+        | Immutable, Alloc_heap -> "block"
+        | Mutable, Alloc_heap -> "mutable"
+        | Immutable, Alloc_local -> "localblock"
+        | Mutable, Alloc_local -> "localmutable" in
+      fprintf ppf "make%s %i%a" kind tag block_shape shape
   | Pfield n -> fprintf ppf "field %i" n
   | Pfield_computed -> fprintf ppf "field_computed"
   | Psetfield(n, ptr, init) ->
@@ -522,19 +526,22 @@ let rec lam ppf = function
             fprintf ppf ")" in
       fprintf ppf "@[<2>(function%a@ %a%a%a)@]" pr_params params
         function_attribute attr return_kind return lam body
-  | Llet(str, k, id, arg, body) ->
+  | (Llet _ | Lregion(Llet _)) as expr ->
       let kind = function
           Alias -> "a" | Strict -> "" | StrictOpt -> "o" | Variable -> "v"
       in
-      let rec letbody = function
-        | Llet(str, k, id, arg, body) ->
-            fprintf ppf "@ @[<2>%a =%s%a@ %a@]"
+      let rec letbody ~sp = function
+        | Llet(str, k, id, arg, body)
+        | Lregion(Llet(str, k, id, arg, body)) as expr ->
+            if sp then fprintf ppf "@ ";
+            let reg = match expr with Lregion _ -> true | _ -> false in
+            fprintf ppf "@[<2>%s%a =%s%a@ %a@]"
+              (if reg then "region " else "")
               Ident.print id (kind str) value_kind k lam arg;
-            letbody body
+            letbody ~sp:true body
         | expr -> expr in
-      fprintf ppf "@[<2>(let@ @[<hv 1>(@[<2>%a =%s%a@ %a@]"
-        Ident.print id (kind str) value_kind k lam arg;
-      let expr = letbody body in
+      fprintf ppf "@[<2>(let@ @[<hv 1>(";
+      let expr = letbody ~sp:false expr in
       fprintf ppf ")@]@ %a)@]" lam expr
   | Lletrec(id_arg_list, body) ->
       let bindings ppf id_arg_list =
@@ -655,6 +662,8 @@ let rec lam ppf = function
       end
   | Lifused(id, expr) ->
       fprintf ppf "@[<2>(ifused@ %a@ %a)@]" Ident.print id lam expr
+  | Lregion expr ->
+      fprintf ppf "@[<2>(region@ %a)@]" lam expr
 
 and sequence ppf = function
   | Lsequence(l1, l2) ->

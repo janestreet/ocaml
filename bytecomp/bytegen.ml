@@ -779,7 +779,7 @@ let rec comp_expr env exp sz cont =
         | CFnge -> Kccall("caml_ge_float", 2) :: Kboolnot :: cont
       in
       comp_args env args sz cont
-  | Lprim(Pmakeblock(tag, _mut, _), args, loc) ->
+  | Lprim(Pmakeblock(tag, _mut, _, _), args, loc) ->
       let cont = add_pseudo_event loc !compunit_name cont in
       comp_args env args sz (Kmakeblock(List.length args, tag) :: cont)
   | Lprim(Pfloatfield n, args, loc) ->
@@ -988,6 +988,8 @@ let rec comp_expr env exp sz cont =
           comp_expr env lam sz cont
       end
   | Lifused (_, exp) ->
+      comp_expr env exp sz cont
+  | Lregion exp ->
       comp_expr env exp sz cont
 
 (* Compile a list of arguments [e1; ...; eN] to a primitive operation.

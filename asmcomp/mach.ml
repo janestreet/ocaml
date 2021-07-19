@@ -53,7 +53,8 @@ type operation =
   | Istackoffset of int
   | Iload of Cmm.memory_chunk * Arch.addressing_mode
   | Istore of Cmm.memory_chunk * Arch.addressing_mode * bool
-  | Ialloc of { bytes : int; dbginfo : Debuginfo.alloc_dbginfo; }
+  | Ialloc of { bytes : int; dbginfo : Debuginfo.alloc_dbginfo;
+                mode : Lambda.alloc_mode }
   | Iintop of integer_operation
   | Iintop_imm of integer_operation * int
   | Inegf | Iabsf | Iaddf | Isubf | Imulf | Idivf
@@ -61,6 +62,7 @@ type operation =
   | Ispecific of Arch.specific_operation
   | Iname_for_debugger of { ident : Backend_var.t; which_parameter : int option;
       provenance : unit option; is_assignment : bool; }
+  | Ibeginregion | Iendregion
 
 type instruction =
   { desc: instruction_desc;
