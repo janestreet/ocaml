@@ -310,7 +310,8 @@ let expr sub x =
           sub.expr sub exp1,
           sub.expr sub exp2
         )
-    | Texp_list_comprehension  _ -> assert false  
+    (*TODO mbungeroth: Add usefull code here.*)
+    | Texp_list_comprehension _ -> assert false  
     | Texp_arr_comprehension _ -> assert false  
     | Texp_for (id, p, exp1, exp2, dir, exp3) ->
         Texp_for (

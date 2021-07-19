@@ -542,6 +542,7 @@ let rec expression : Typedtree.expression -> term_judg =
           List.split (List.map (fun c -> case c mode) cases) in
         let env_e = expression e (List.fold_left Mode.join Ignore pat_modes) in
         Env.join_list (env_e :: pat_envs))
+    (*TODO mbungeroth: Add usefull code here.*)
     | Texp_list_comprehension _ -> assert false
     | Texp_arr_comprehension _ -> assert false  
     | Texp_for (_, _, low, high, _, body) ->

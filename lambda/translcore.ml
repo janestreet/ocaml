@@ -471,12 +471,12 @@ and transl_exp0 ~in_new_scope ~scopes e =
     in
     let fn = Lfunction {kind = Curried;
                         params= [param, pval];
-                        return = Pgenval;
+                        return = Typeopt.value_kind body.exp_env body.exp_type;
                         attr = default_function_attribute;
                         loc = Loc_unknown;
                         body = transl_exp ~scopes  body} in
     Lapply{
-      ap_loc=Loc_unknown;false
+      ap_loc=Loc_unknown;
       ap_func=func;
       ap_args= fn::args;
       ap_tailcall=Default_tailcall;
@@ -494,7 +494,7 @@ and transl_exp0 ~in_new_scope ~scopes e =
     in
     let fn = Lfunction {kind = Curried;
                         params= [param, pval];
-                        return = Pgenval;
+                        return = Typeopt.value_kind body.exp_env body.exp_type;
                         attr = default_function_attribute;
                         loc = Loc_unknown;
                         body = transl_exp ~scopes  body} in

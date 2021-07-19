@@ -28,6 +28,7 @@ type type_forcing_context =
   | If_no_else_branch
   | While_loop_conditional
   | While_loop_body
+  | InComprehensionArgument
   | For_loop_start_index
   | For_loop_stop_index
   | For_loop_body
@@ -595,17 +596,8 @@ let split_cases env cases =
                     Mixed_value_and_exception_patterns_under_guard))
     | vp, ep -> add_case vals case vp, add_case exns case ep
   ) cases ([], [])
-
-let remove_type ~loc ~env ~remove ty =
-  begin_def ();
-  let removed_ty = Ctype.newvar ()  in
-  unify_exp_types loc env 
-    (instance (remove removed_ty)) (instance ty);
-  end_def();
-  generalize_structure removed_ty; 
-  removed_ty
-  
-let new_for_loop_env ~loc ~env ~param ty= 
+ 
+let type_for_loop ~loc ~env ~param ty= 
 match param.ppat_desc with
 | Ppat_any -> Ident.create_local "_for", env
 | Ppat_var {txt} ->
@@ -3098,22 +3090,54 @@ and type_expect_
         exp_attributes = sexp.pexp_attributes;
         exp_env = env }
   | Pexp_list_comprehension (sbody, comp_type) ->  
-    comprehension ~loc ~env ~sexp ~ty_expected 
-        ~container_type:Predef.type_list
-        ~sbody ~comp_type
-        ~texp:(fun id body comp_type -> 
-            Texp_list_comprehension (id, body, comp_type))
+    if !Clflags.principal then begin_def ();
+    let without_list_ty = Ctype.newvar ()  in
+    unify_exp_types loc env 
+      (instance (Predef.type_list without_list_ty)) (instance ty_expected);
+    if !Clflags.principal then begin 
+      end_def();
+      generalize_structure without_list_ty; 
+    end;
+
+    let id, body, comp_type = 
+        comprehension ~loc ~env 
+        ~ty_expected:(mk_expected without_list_ty) 
+        ~container_type:Predef.type_list ~sbody ~comp_type
+      in
+    re {
+      exp_desc = Texp_list_comprehension (id, body, comp_type);
+      exp_loc = loc; exp_extra = [];
+      exp_type = instance (Predef.type_list body.exp_type);
+      exp_attributes = sexp.pexp_attributes;
+      exp_env = env }
   | Pexp_arr_comprehension (sbody, comp_type) -> 
-    comprehension ~loc ~env ~sexp ~ty_expected
+    if !Clflags.principal then begin_def ();
+    let without_arr_ty = Ctype.newvar ()  in
+    unify_exp_types loc env 
+      (instance (Predef.type_array without_arr_ty)) (instance ty_expected);
+    if !Clflags.principal then begin 
+      end_def();
+      generalize_structure without_arr_ty; 
+    end;
+
+    let id, body, comp_type = 
+        comprehension ~loc ~env 
+        ~ty_expected:(mk_expected without_arr_ty) 
         ~container_type:Predef.type_array ~sbody ~comp_type
-        ~texp:(fun id body comp_type -> 
-           Texp_arr_comprehension(id, body, comp_type))
-  | Pexp_for(param, slow, shigh, dir, sbody) ->
+    in 
+    re {
+      exp_desc = Texp_arr_comprehension (id, body, comp_type);
+      exp_loc = loc; exp_extra = [];
+      exp_type = instance (Predef.type_array body.exp_type);
+      exp_attributes = sexp.pexp_attributes;
+      exp_env = env }
+
+| Pexp_for(param, slow, shigh, dir, sbody) ->
       let low = type_expect env slow
           (mk_expected ~explanation:For_loop_start_index Predef.type_int) in
       let high = type_expect env shigh
           (mk_expected ~explanation:For_loop_stop_index Predef.type_int) in
-      let id, new_env = new_for_loop_env ~loc ~env ~param  Predef.type_int in
+      let id, new_env = type_for_loop ~loc ~env ~param  Predef.type_int in
       let body = type_statement ~explanation:For_loop_body new_env sbody in
       rue {
         exp_desc = Texp_for(id, param, low, high, dir, body);
@@ -5115,40 +5139,31 @@ and type_andops env sarg sands expected_ty =
   let let_arg, rev_ands = loop env sarg (List.rev sands) expected_ty in
   let_arg, List.rev rev_ands
 
-and comprehension ~loc ~env ~sexp ~ty_expected ~container_type 
-                  ~sbody ~(comp_type : Parsetree.comprehension) ~texp = 
+(*TODO mbungeroth: Why do I need the type annotation here to make this work?*)
+  and comprehension ~loc ~env ~ty_expected ~container_type 
+                  ~sbody ~(comp_type : Parsetree.comprehension) = 
   let from_to_comprehension param slow shigh dir =
     let low = type_expect env slow
         (mk_expected ~explanation:For_loop_start_index Predef.type_int) in
     let high = type_expect env shigh
         (mk_expected ~explanation:For_loop_stop_index Predef.type_int) in
-    let id, new_env = new_for_loop_env ~loc ~env ~param  Predef.type_int in
-    let ty = remove_type ~loc ~env ~remove:container_type ty_expected in
-    let body = type_expect new_env sbody (mk_expected ty) in
-    re {
-      exp_desc = texp id body (From_to(param, low, high, dir));
-      exp_loc = loc; exp_extra = [];
-      exp_type = instance (container_type body.exp_type);
-      exp_attributes = sexp.pexp_attributes;
-      exp_env = env }
+    let id, new_env = type_for_loop ~loc ~env ~param  Predef.type_int in
+    let body = type_expect new_env sbody ty_expected in
+    id, body, From_to(param, low, high, dir)
   in
   let in_comprehension param siter= 
-    let iter = type_exp env siter in
-    let no_list_iter_ty = remove_type ~loc ~env ~remove:container_type  iter.exp_type in
-    let id, new_env = new_for_loop_env ~loc ~env ~param no_list_iter_ty
+    let item_ty = newvar() in
+    let iter_ty = instance (container_type item_ty) in
+    let iter = type_expect env siter (mk_expected ~explanation:InComprehensionArgument iter_ty) in
+    let id, new_env = type_for_loop ~loc ~env ~param item_ty
     in
-    let ty = remove_type ~loc ~env ~remove:container_type ty_expected in
-    let body = type_expect new_env sbody (mk_expected ty) in
-    re {
-      exp_desc = texp id body (In(param, iter));
-      exp_loc = loc; exp_extra = [];
-      exp_type = instance (container_type body.exp_type);
-      exp_attributes = sexp.pexp_attributes;
-      exp_env = env }
+    let body = type_expect new_env sbody ty_expected in
+    id, body, In(param, iter)
   in
   match comp_type  with 
   | From_to (p,e2,e3, dir) -> from_to_comprehension p e2 e3 dir
   | In (p, e2) ->  in_comprehension p e2
+  
 (* Typing of toplevel bindings *)
 
 let type_binding env rec_flag spat_sexp_list =
@@ -5259,6 +5274,8 @@ let report_type_expected_explanation expl ppf =
       because "the condition of a while-loop"
   | While_loop_body ->
       because "the body of a while-loop"
+  | InComprehensionArgument -> 
+    because "the iteration argument of a comprehension"
   | For_loop_start_index ->
       because "a for-loop start index"
   | For_loop_stop_index ->
