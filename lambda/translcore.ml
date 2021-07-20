@@ -152,16 +152,16 @@ let rec push_defaults loc bindings cases partial =
   | _ ->
       cases
 
-let comprehension_prim ~is_array ~dir= 
-  let prefix = if is_array then "array_" else "" in
+let comprehension_prim ~is_concat ~dir= 
+  let prefix = if is_concat then "concat_" else "" in
   let fun_name =  prefix ^ 
   match dir with 
     | Upto ->  "map_from_to"
     | Downto -> "map_from_downto"  in
   Lambda.transl_prim "CamlinternalComprehension" fun_name
 
-let list_comp_in_prim ~is_array = 
-  let prefix = if is_array then "array_" else "" in
+let list_comp_in_prim ~is_concat = 
+  let prefix = if is_concat then "concat_" else "" in
   Lambda.transl_prim "CamlinternalComprehension" (prefix ^ "map")
 
 (* Insertion of debugging events *)
@@ -460,7 +460,10 @@ and transl_exp0 ~in_new_scope ~scopes e =
       Lwhile(transl_exp ~scopes cond,
              event_before ~scopes body (transl_exp ~scopes body))
   
-  | Texp_arr_comprehension (param, body, type_comp) -> 
+  | Texp_arr_comprehension (_param, _body, _type_comp) -> 
+    (*
+    let type_comp = List.hd type_comp in
+    let param = List.hd param in
     let pval, args, func = match type_comp with
     | From_to (_,e2,e3, dir) -> 
         Pintval, [transl_exp ~scopes e2; transl_exp ~scopes e3],
@@ -483,29 +486,48 @@ and transl_exp0 ~in_new_scope ~scopes e =
       ap_inlined=Default_inline;
       ap_specialised=Default_specialise;
     }
-  | Texp_list_comprehension (param, body, type_comp) -> 
-    let pval, args, func = match type_comp with
-    | From_to (_,e2,e3, dir) -> 
-        Pintval, [transl_exp ~scopes e2; transl_exp ~scopes e3],
-        comprehension_prim ~is_array:false ~dir
-    | In (_, e2) ->  
-        Pgenval, [transl_exp ~scopes e2],
-        list_comp_in_prim ~is_array:false
+    *)
+    assert false
+  | Texp_list_comprehension (params, body, type_comps) -> 
+    (*The left most statement should be at the end of the recursion.*)
+    let params = List.rev (List.concat params) in
+    let type_comps = List.rev (List.concat type_comps) in
+    let return = Typeopt.value_kind body.exp_env body.exp_type in
+    let create type_comp param bdy is_concat = 
+      let pval, args, func = match type_comp with
+      | From_to (_,e2,e3, dir) -> 
+          Pintval, [transl_exp ~scopes e2; transl_exp ~scopes e3],
+          comprehension_prim ~is_concat ~dir
+      | In (_, e2) ->  
+          Pgenval, [transl_exp ~scopes e2],
+          list_comp_in_prim ~is_concat
+      in
+      let fn = Lfunction {kind = Curried;
+                          params= [param, pval];
+                          return = return;
+                          attr = default_function_attribute;
+                          loc = Loc_unknown;
+                          body = bdy} in
+      Lapply{
+        ap_loc=Loc_unknown;
+        ap_func=func;
+        ap_args= fn::args;
+        ap_tailcall=Default_tailcall;
+        ap_inlined=Default_inline;
+        ap_specialised=Default_specialise;
+      }
     in
-    let fn = Lfunction {kind = Curried;
-                        params= [param, pval];
-                        return = Typeopt.value_kind body.exp_env body.exp_type;
-                        attr = default_function_attribute;
-                        loc = Loc_unknown;
-                        body = transl_exp ~scopes  body} in
-    Lapply{
-      ap_loc=Loc_unknown;
-      ap_func=func;
-      ap_args= fn::args;
-      ap_tailcall=Default_tailcall;
-      ap_inlined=Default_inline;
-      ap_specialised=Default_specialise;
-    }
+    (* TODO: Instead of reversing and right-folding we left-fold and handle
+       the first iteration seperatly. 
+       Not sure if ist worth it since the code will be (a little )more 
+       complicated and the lists should be pretty short s.t. no-tail-rec is
+       fine. *)
+    let rec iter_comprehension type_comps params = 
+        match type_comps, params with 
+        | l::[], p::[] -> create l p (transl_exp ~scopes  body) false
+        | l::ls, p::ps -> create l p (iter_comprehension ls ps) true
+        | _ -> assert false in
+    iter_comprehension type_comps params
   | Texp_for(param, _, low, high, dir, body) ->
       Lfor(param, transl_exp ~scopes low, transl_exp ~scopes high, dir,
            event_before ~scopes body (transl_exp ~scopes body))

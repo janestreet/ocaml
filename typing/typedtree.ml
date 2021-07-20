@@ -121,9 +121,9 @@ and expression_desc =
   | Texp_sequence of expression * expression
   | Texp_while of expression * expression
   | Texp_list_comprehension of 
-      Ident.t * expression * comprehension
+      Ident.t list list * expression * comprehension list list
   | Texp_arr_comprehension of 
-      Ident.t * expression * comprehension
+      Ident.t list list * expression * comprehension list list
   | Texp_for of
       Ident.t * Parsetree.pattern * expression * expression * direction_flag *
         expression

@@ -177,8 +177,10 @@ let classify_expression : Typedtree.expression -> sd =
     | Texp_apply _ ->
         Dynamic
 
-    | Texp_list_comprehension _
-    | Texp_arr_comprehension _   
+    | Texp_list_comprehension _ -> 
+        Dynamic
+    | Texp_arr_comprehension _  -> 
+        Dynamic
     | Texp_for _
     | Texp_constant _
     | Texp_new _

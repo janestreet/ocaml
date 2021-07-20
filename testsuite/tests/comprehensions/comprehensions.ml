@@ -52,3 +52,34 @@ Warning 18 [not-principal]: this type-based constructor disambiguation is not pr
 |}];;
 
 
+let y = 10;;
+[i for i in y];;
+[%%expect{|
+val y : int = 10
+Line 2, characters 12-13:
+2 | [i for i in y];;
+                ^
+Error: This expression has type int but an expression was expected of type
+         'a list
+       because it is in the iteration argument of a comprehension
+|}];;
+
+
+let y = [1;2;3];;
+[i for i in y];;
+[%%expect{|
+val y : int list = [1; 2; 3]
+- : int list = [1; 2; 3]
+|}];;
+
+
+let y = [1;2;3];;
+true::[i for i in y];;
+[%%expect{|
+val y : int list = [1; 2; 3]
+Line 2, characters 7-8:
+2 | true::[i for i in y];;
+           ^
+Error: This expression has type int but an expression was expected of type
+         bool
+|}];;

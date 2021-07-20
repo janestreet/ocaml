@@ -229,7 +229,13 @@ let expr sub {exp_extra; exp_desc; exp_env; _} =
       sub.expr sub exp1;
       sub.expr sub exp2
   (*TODO mbungeroth: Add usefull code here.*)
-  | Texp_list_comprehension _ -> assert false 
+  | Texp_list_comprehension (_ , exp1, type_comps) -> 
+    sub.expr sub exp1; 
+    List.iter (fun type_comp -> 
+      match type_comp with
+      | From_to (_,e2,e3, _) -> sub.expr sub e2; sub.expr sub e3
+      | In (_, e2) -> sub.expr sub e2 
+      ) (List.concat type_comps)
   | Texp_arr_comprehension _ -> assert false  
   | Texp_for (_, _, exp1, exp2, _, exp3) ->
       sub.expr sub exp1;
