@@ -248,6 +248,10 @@ and expression_desc =
   | Texp_ifthenelse of expression * expression * expression option
   | Texp_sequence of expression * expression
   | Texp_while of expression * expression
+  | Texp_list_comprehension of 
+      Ident.t list list * expression * comprehension list list
+  | Texp_arr_comprehension of 
+      Ident.t list list * expression * comprehension list list
   | Texp_for of
       Ident.t * Parsetree.pattern * expression * expression * direction_flag *
         expression
@@ -279,6 +283,10 @@ and expression_desc =
 and meth =
     Tmeth_name of string
   | Tmeth_val of Ident.t
+
+and comprehension = 
+  | From_to of Parsetree.pattern * expression * expression * direction_flag
+  | In of Parsetree.pattern * expression
 
 and 'k case =
     {

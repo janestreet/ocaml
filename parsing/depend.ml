@@ -221,6 +221,9 @@ let rec add_expr bv exp =
       add_expr bv e1; add_expr bv e2; add_opt add_expr bv opte3
   | Pexp_sequence(e1, e2) -> add_expr bv e1; add_expr bv e2
   | Pexp_while(e1, e2) -> add_expr bv e1; add_expr bv e2
+  (*TODO mbungeroth: Add usefull code here.*)
+  | Pexp_list_comprehension _ -> assert false
+  | Pexp_arr_comprehension _-> assert false
   | Pexp_for( _, e1, e2, _, e3) ->
       add_expr bv e1; add_expr bv e2; add_expr bv e3
   | Pexp_coerce(e1, oty2, ty3) ->

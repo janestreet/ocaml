@@ -379,6 +379,18 @@ module E = struct
         sub.expr sub e1; sub.expr sub e2
     | Pexp_while (e1, e2) ->
         sub.expr sub e1; sub.expr sub e2
+    | Pexp_list_comprehension (_e1, _comp_type)
+    | Pexp_arr_comprehension (_e1, _comp_type) ->
+      (*
+      TODO mbungeroth: to this recursivly
+      (match comp_type with
+      | From_to (p,e2,e3,_) ->
+        sub.expr sub e1; sub.pat sub p; sub.expr sub e2;
+        sub.expr sub e3
+      | In (p, e2) -> 
+        sub.expr sub e1; sub.pat sub p; sub.expr sub e2;
+      ) *)
+      assert false
     | Pexp_for (p, e1, e2, _d, e3) ->
         sub.pat sub p; sub.expr sub e1; sub.expr sub e2;
         sub.expr sub e3

@@ -813,6 +813,9 @@ and simple_expr ctxt f x =
     | Pexp_while (e1, e2) ->
         let fmt : (_,_,_) format = "@[<2>while@;%a@;do@;%a@;done@]" in
         pp f fmt (expression ctxt) e1 (expression ctxt) e2
+    (*TODO mbungeroth: Add usefull code here.*)
+    | Pexp_list_comprehension _ -> assert false
+    | Pexp_arr_comprehension _ -> assert false
     | Pexp_for (s, e1, e2, df, e3) ->
         let fmt:(_,_,_)format =
           "@[<hv0>@[<hv2>@[<2>for %a =@;%a@;%a%a@;do@]@;%a@]@;done@]" in

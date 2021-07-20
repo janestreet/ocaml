@@ -31,6 +31,7 @@ type type_forcing_context =
   | If_no_else_branch
   | While_loop_conditional
   | While_loop_body
+  | InComprehensionArgument
   | For_loop_start_index
   | For_loop_stop_index
   | For_loop_body

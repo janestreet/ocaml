@@ -330,6 +330,9 @@ and expression i ppf x =
       line i ppf "Pexp_while\n";
       expression i ppf e1;
       expression i ppf e2;
+  (*TODO mbungeroth: Add usefull code here.*)
+  | Pexp_list_comprehension _ -> assert false
+  | Pexp_arr_comprehension _-> assert false
   | Pexp_for (p, e1, e2, df, e3) ->
       line i ppf "Pexp_for %a\n" fmt_direction_flag df;
       pattern i ppf p;

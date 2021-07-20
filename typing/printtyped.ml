@@ -381,6 +381,9 @@ and expression i ppf x =
       line i ppf "Texp_while\n";
       expression i ppf e1;
       expression i ppf e2;
+  (*TODO mbungeroth: Add usefull code here.*)
+  | Texp_list_comprehension _ -> assert false
+  | Texp_arr_comprehension _ -> assert false  
   | Texp_for (s, _, e1, e2, df, e3) ->
       line i ppf "Texp_for \"%a\" %a\n" fmt_ident s fmt_direction_flag df;
       expression i ppf e1;

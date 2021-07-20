@@ -193,6 +193,10 @@ module Exp = struct
   let ifthenelse ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_ifthenelse (a, b, c))
   let sequence ?loc ?attrs a b = mk ?loc ?attrs (Pexp_sequence (a, b))
   let while_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_while (a, b))
+  let _list_comprehension ?loc ?attrs a b
+        = mk ?loc ?attrs (Pexp_list_comprehension (a, b))
+  let _arr_comprehension ?loc ?attrs a b 
+        = mk ?loc ?attrs (Pexp_arr_comprehension (a, b))
   let for_ ?loc ?attrs a b c d e = mk ?loc ?attrs (Pexp_for (a, b, c, d, e))
   let constraint_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_constraint (a, b))
   let coerce ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_coerce (a, b, c))
